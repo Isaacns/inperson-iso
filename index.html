@@ -138,6 +138,23 @@ h1,h2,h3{font-weight:300;margin:0}
   @page{margin:14mm}
 }
 @media(max-width:760px){.ip-side{display:none}.ip-main{padding:18px 14px 60px}}
+/* ---------- refinos de fluidez / dinamismo (v1.0 definitiva) ---------- */
+@keyframes ip-logopulse{0%,100%{filter:drop-shadow(0 0 6px rgba(116,176,216,.45));transform:scale(1)}50%{filter:drop-shadow(0 0 22px rgba(116,176,216,.95));transform:scale(1.045)}}
+@keyframes ip-ring{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+.ip-authbox .logo-wrap{position:relative;display:inline-flex;justify-content:center;align-items:center;margin-bottom:14px}
+.ip-authbox .logo-wrap img{margin:0;animation:ip-logopulse 3.2s ease-in-out infinite;position:relative;z-index:2}
+.ip-authbox .logo-wrap::after{content:"";position:absolute;width:64px;height:64px;border-radius:16px;border:1px solid var(--ip-accent);animation:ip-ring 3.2s ease-out infinite;z-index:1}
+.ip-authbox{animation:ip-fadeup .5s ease}
+.ip-card{transition:transform .2s ease, box-shadow .2s ease}
+.ip-card.lift:hover{transform:translateY(-3px);box-shadow:0 16px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14)}
+.kpi-card{animation:ip-fadeup .5s ease both}
+.kpi-card:nth-child(1){animation-delay:.02s}.kpi-card:nth-child(2){animation-delay:.08s}.kpi-card:nth-child(3){animation-delay:.14s}.kpi-card:nth-child(4){animation-delay:.2s}
+.ip-nav{transition:background .15s ease,color .15s ease,transform .15s ease,border-color .15s ease}
+.ip-nav:hover{transform:translateX(2px)}
+.ip-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .6s ease}
+.ip-btn:not(.ghost):hover::after{transform:translateX(120%)}
+.seg button{transition:background .15s ease,color .15s ease}
+.ip-install-login{width:100%;margin-top:10px;animation:ip-fadeup .4s ease}
 </style>
 <script>
 // Configuração de conexão — INPERSON Qualidade ISO (app independente)
@@ -234,7 +251,7 @@ function Login(p){
     }).catch(function(e){ setLoading(false); setErr(String(e)); });
   }
   return h("div",{className:"ip-auth"}, h("form",{className:"ip-authbox",onSubmit:go},
-    IP_ICON?h("img",{src:IP_ICON,alt:"INPERSON"}):null,
+    IP_ICON?h("div",{className:"logo-wrap"},h("img",{src:IP_ICON,alt:"INPERSON"})):null,
     h("h1",{style:{fontSize:"22px",fontWeight:300}},"Qualidade ISO"),
     h("div",{className:"ip-sub",style:{marginBottom:"22px"}},"Documentos controlados · Evidências ISO 9001 — INPERSON"),
     h(Field,{label:"E-mail"}, h("input",{className:"ip-input",type:"email",value:f.email,autoComplete:"username",onChange:function(e){setF(Object.assign({},f,{email:e.target.value}));}})),
@@ -243,6 +260,7 @@ function Login(p){
       h("button",{type:"button",onClick:function(){setShow(!show);},style:{position:"absolute",right:"10px",top:"9px",background:"none",border:"none",color:"var(--ip-muted)",cursor:"pointer",fontSize:"12px"}},show?"ocultar":"mostrar"))),
     err?h("div",{style:{color:"var(--ip-danger)",fontSize:"13px",marginBottom:"12px"}},err):null,
     h("button",{className:"ip-btn",type:"submit",disabled:loading,style:{width:"100%"}}, loading?h("span",{className:"spin"}):null, loading?" Entrando…":"Entrar"),
+    p.deferred?h("button",{type:"button",className:"ip-btn ghost ip-install-login",onClick:function(){ p.deferred.prompt(); p.deferred.userChoice.then(function(){ if(p.clearDefer)p.clearDefer(); }); }},"⤓ Instalar app no dispositivo"):null,
     h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"18px"}},"Acesso restrito · INPERSON Soluções em Tecnologia")
   ));
 }
@@ -291,7 +309,7 @@ function App(){
   useEffect(function(){ if(sess){ sb.from("perfis").select("papel,nome").eq("id",sess.user.id).maybeSingle().then(function(r){ setPerfil(r.data||{}); }); carregar(); } },[sess]);
 
   if(sess===undefined) return h("div",{className:"ip-auth"},h("span",{className:"spin"}));
-  if(!sess) return h(React.Fragment,null,h(Bgfx),h(Login));
+  if(!sess) return h(React.Fragment,null,h(Bgfx),h(Login,{deferred:defer,clearDefer:function(){ setDefer(null); }}));
   var admin = isAdminUser(sess.user) || (perfil&&perfil.papel==="admin");
   if(perfil!==null && !admin){
     return h(React.Fragment,null,h(Bgfx),h("div",{className:"ip-auth"},h("div",{className:"ip-authbox"},
@@ -304,8 +322,10 @@ function App(){
   var regsC=data.regs.filter(function(r){ return !r.cliente_id || r.cliente_id===clienteId; });
   var ativosC=data.ativos.filter(function(a){ return !a.cliente_id || a.cliente_id===clienteId; });
   var clienteNome=(data.clientes.filter(function(c){return c.id===clienteId;})[0]||{}).nome||"—";
+  var isoClientIds={}; data.docs.forEach(function(d){ if(d.cliente_id) isoClientIds[d.cliente_id]=1; });
+  var clientesISO=data.clientes.filter(function(c){ return isoClientIds[c.id]; }); if(!clientesISO.length) clientesISO=data.clientes;
 
-  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId,
+  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, user:sess.user, perfil:perfil };
 
   var NAV=[["painel","◔","Painel"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"]];
@@ -367,8 +387,8 @@ function Painel(p){
   ];
   function abrir(l){ p.setEditing({codigo:l.doc.codigo,competencia:comp,reg:l.reg}); }
   return h("div",null,
-    h(TopBar,{title:"Painel de conformidade",sub:"Competência "+ymLabel(comp)+" · "+p.clienteNome,clientes:p.data.clientes,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:function(){}}),
-    h("div",{className:"grid k4",style:{marginBottom:"18px"}}, cards.map(function(c,i){ return h("div",{key:i,className:"ip-card ip-pad"}, h("div",{className:"ip-sub"},c.l), h("div",{className:"kpi-big",style:{color:c.c,marginTop:"8px"}},c.v)); })),
+    h(TopBar,{title:"Painel de conformidade",sub:"Competência "+ymLabel(comp)+" · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h("div",{className:"grid k4",style:{marginBottom:"18px"}}, cards.map(function(c,i){ return h("div",{key:i,className:"ip-card ip-pad kpi-card lift"}, h("div",{className:"ip-sub"},c.l), h("div",{className:"kpi-big",style:{color:c.c,marginTop:"8px"}},c.v)); })),
     h("div",{className:"grid k2"},
       h("div",{className:"ip-card ip-pad"},
         h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}, h("h3",{style:{fontSize:"16px"}},"O que vence este mês"), h("span",{className:"ip-pill"},ymLabel(comp))),
@@ -394,7 +414,7 @@ function Documentos(p){
   p.docsC.forEach(function(d){ var s=d.secao||"Outros"; if(!groups[s]){groups[s]=[];order.push(s);} groups[s].push(d); });
   function freqLabel(f){ return ({mensal:"Mensal",semestral:"Semestral",anual:"Anual",ocorrencia:"Por ocorrência",vigente:"Vigente",referencia:"Referência",unico:"Único"})[f]||f; }
   return h("div",null,
-    h(TopBar,{title:"Documentos controlados",sub:p.docsC.length+" documentos · "+p.clienteNome,clientes:p.data.clientes,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Documentos controlados",sub:p.docsC.length+" documentos · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     order.map(function(s){ return h("div",{key:s},
       h("div",{className:"sec-h"},s),
       h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
@@ -419,7 +439,7 @@ function Documentos(p){
 /* ---------- Inventário (somente leitura no v1) ---------- */
 function Inventario(p){
   return h("div",null,
-    h(TopBar,{title:"Inventário de ativos",sub:"INV-ATI-001 · "+p.ativosC.length+" itens",clientes:p.data.clientes,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Inventário de ativos",sub:"INV-ATI-001 · "+p.ativosC.length+" itens",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
       h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"))),
       h("tbody",null, p.ativosC.length?p.ativosC.map(function(a){ return h("tr",{key:a.id},
@@ -437,7 +457,7 @@ function FormPicker(p){
   var d=docByCode(p.docsC,code)||{};
   var existing=findReg(p.regsC,code,comp);
   return h("div",null,
-    h(TopBar,{title:"Preencher evidência",sub:"Escolha o formulário e a competência",clientes:p.data.clientes,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Preencher evidência",sub:"Escolha o formulário e a competência",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"ip-card ip-pad",style:{maxWidth:"640px"}},
       h(Field,{label:"Formulário (evidência)"}, h("select",{className:"ip-sel",value:code,onChange:function(e){setCode(e.target.value);}}, MENSAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); }))),
       h(Field,{label:"Competência (mês)"}, h("select",{className:"ip-sel",value:comp,onChange:function(e){setComp(e.target.value);}}, opts.map(function(o){ return h("option",{key:o,value:o},ymLabel(o)); }))),
@@ -453,7 +473,7 @@ function Historico(p){
   var regs=p.regsC.filter(function(r){ return filt==="todos"||r.documento_codigo===filt; });
   var codes={}; p.regsC.forEach(function(r){ codes[r.documento_codigo]=1; });
   return h("div",null,
-    h(TopBar,{title:"Histórico / Arquivo",sub:p.regsC.length+" evidências registradas",clientes:p.data.clientes,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+    h(TopBar,{title:"Histórico / Arquivo",sub:p.regsC.length+" evidências registradas",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
       right:h("select",{className:"ip-sel",style:{width:"auto"},value:filt,onChange:function(e){setFilt(e.target.value);}}, [h("option",{key:"t",value:"todos"},"Todos os documentos")].concat(Object.keys(codes).sort().map(function(c){ return h("option",{key:c,value:c},c); })))}),
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
       h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Competência"),h("th",null,"Nº"),h("th",null,"Status"),h("th",null,"Responsável"),h("th",null,"Concluído"),h("th",null,""))),
