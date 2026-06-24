@@ -127,7 +127,7 @@ h1,h2,h3{font-weight:300;margin:0}
 .doc-ctrl .dc-sign{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:34px}
 .doc-ctrl .dc-sign .s{border-top:1px solid #2c3e55;padding-top:6px;font-size:11px;color:#34465c;text-align:center}
 .doc-ctrl .dc-foot{padding:14px 30px;border-top:1px solid #dde6f0;background:#f7fafd;font-size:10px;color:#7a8aa0;text-align:center;letter-spacing:.3px}
-.res-ok{color:#1f9d63;font-weight:700} .res-nc{color:#d0392b;font-weight:700} .res-na{color:#7a8aa0;font-weight:700}
+.res-ok{color:#1f9d63;font-weight:700} .res-nc{color:#d0392b;font-weight:700} .res-na{color:#7a8aa0;font-weight:700} .res-pa{color:#b9821f;font-weight:700}
 /* print */
 @media print{
   .ip-noprint{display:none!important}
@@ -217,9 +217,32 @@ var FORMS={
    {k:"nc_abertas",l:"NCs abertas",suf:""},{k:"nc_fechadas",l:"NCs fechadas",suf:""},
    {k:"uptime_cftv",l:"Uptime CFTV",suf:"%"}]},
  "FOR-ACE-001":{kind:"tabela",colunas:[
-   {k:"dh",l:"Data/Hora"},{k:"pessoa",l:"Pessoa"},{k:"empresa",l:"Empresa"},{k:"motivo",l:"Motivo"},{k:"autz",l:"Autorizado por"}]}
+   {k:"dh",l:"Data/Hora"},{k:"pessoa",l:"Pessoa"},{k:"empresa",l:"Empresa"},{k:"motivo",l:"Motivo"},{k:"autz",l:"Autorizado por"}]},
+ "FOR-INC-001":{kind:"campos",freq:"ocorrencia",campos:[
+   {k:"descricao",l:"Descrição da não conformidade",t:"textarea"},{k:"data_ocorrencia",l:"Data da ocorrência",t:"date"},
+   {k:"origem",l:"Origem / Como foi detectada",t:"text"},{k:"classificacao",l:"Classificação",t:"select",opts:["Menor","Maior","Observação"]},
+   {k:"analise_causa",l:"Análise de causa (raiz)",t:"textarea"},{k:"acao_corretiva",l:"Ação corretiva",t:"textarea"},
+   {k:"resp_acao",l:"Responsável pela ação",t:"text"},{k:"prazo",l:"Prazo",t:"date"},
+   {k:"status_nc",l:"Status da NC",t:"select",opts:["Aberta","Em andamento","Fechada"]},{k:"verif_eficacia",l:"Verificação de eficácia",t:"textarea"}]},
+ "FOR-MUD-001":{kind:"campos",freq:"ocorrencia",campos:[
+   {k:"o_que",l:"O que mudou",t:"textarea"},{k:"motivo",l:"Motivo da mudança",t:"textarea"},{k:"data",l:"Data da mudança",t:"date"},
+   {k:"impacto",l:"Impacto / Riscos",t:"textarea"},{k:"aprovacao",l:"Aprovação",t:"text"},{k:"docs_atualizados",l:"Documentos atualizados (DOC-IP / Topologia)",t:"textarea"}]},
+ "FOR-AUD-001":{kind:"auditoria",freq:"semestral",grupos:[
+   {clausula:"4 — Contexto da organização",perguntas:["Contexto, partes interessadas e escopo do SGQ definidos?","Processos do SGQ e suas interações mapeados?"]},
+   {clausula:"5 — Liderança",perguntas:["Política da Qualidade comunicada e disponível?","Responsabilidades e autoridades definidas?"]},
+   {clausula:"6 — Planejamento",perguntas:["Riscos e oportunidades tratados?","Objetivos da qualidade definidos e acompanhados?"]},
+   {clausula:"7 — Apoio",perguntas:["Infraestrutura adequada e mantida (7.1.3)?","Informação documentada controlada (7.5)?","Competência do fornecedor (INPERSON) registrada?"]},
+   {clausula:"8 — Operação",perguntas:["Controle do fornecedor externo (8.4) evidenciado?","Mudanças controladas (FOR-MUD)?","Saídas não conformes tratadas (FOR-INC)?"]},
+   {clausula:"9 — Avaliação de desempenho",perguntas:["Indicadores/KPIs monitorados e analisados (9.1)?","Auditorias internas realizadas (9.2)?","Análise crítica pela direção (9.3)?"]},
+   {clausula:"10 — Melhoria",perguntas:["Não conformidades e ações corretivas tratadas (10.2)?","Melhoria contínua evidenciada?"]}]},
+ "DEC-CONF-001":{kind:"declaracao",freq:"semestral",textoPadrao:"A INPERSON Soluções em Tecnologia, na qualidade de fornecedor externo qualificado (ISO 9001:2015, cláusula 8.4), DECLARA que a infraestrutura tecnológica da Avanço Odontologia Moderna (rede corporativa, servidores, CFTV, sonorização, backup e no-break) foi mantida, monitorada e está em conformidade com os requisitos aplicáveis do Sistema de Gestão da Qualidade no período de referência, conforme as evidências documentadas (checklists de manutenção, segurança física, KPIs e registros de acesso)."}
 };
 var MENSAIS=["FOR-MAN-001","FOR-SEG-001","FOR-KPI-001","FOR-ACE-001"];
+var EVENTUAIS=["FOR-INC-001","FOR-MUD-001","FOR-AUD-001","DEC-CONF-001"];
+function freqDe(code){ if(MENSAIS.indexOf(code)>-1) return "mensal"; var d=FORMS[code]; return (d&&d.freq)||"mensal"; }
+function semLabel(s){ var p=String(s).split("-S"); return (p[1]==="1"?"1º":"2º")+" semestre/"+p[0]; }
+function compLabel(c){ if(!c) return "—"; if(/^\d{4}-S[12]$/.test(c)) return semLabel(c); if(/^\d{4}-\d{2}-\d{2}$/.test(c)) return brDate(c); if(/^\d{4}-\d{2}$/.test(c)) return ymLabel(c); return c; }
+function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMonth()<6)?1:2; for(var i=0;i<n;i++){ out.push(y+"-S"+s); if(s===1){s=2;y--;}else{s=1;} } return out; }
 function isAdminUser(u){ if(!u) return false; var em=(u.email||"").toLowerCase(); return (CFG.ADMIN_EMAILS||[]).indexOf(em)>-1; }
 
 /* ---------- UI atoms ---------- */
@@ -276,6 +299,7 @@ function App(){
   var ts=useState(null), toast=ts[0], setToast=ts[1];
   var es=useState(null), editing=es[0], setEditing=es[1];
   var dv=useState(null), docView=dv[0], setDocView=dv[1];
+  var de=useState(null), editDoc=de[0], setEditDoc=de[1];
   var ins=useState(null), defer=ins[0], setDefer=ins[1];
 
   function flash(msg,kind){ setToast({msg:msg,kind:kind||"ok"}); setTimeout(function(){ setToast(null); },2600); }
@@ -326,11 +350,12 @@ function App(){
   var clientesISO=data.clientes.filter(function(c){ return isoClientIds[c.id]; }); if(!clientesISO.length) clientesISO=data.clientes;
 
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
-    flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, user:sess.user, perfil:perfil };
+    flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
   var NAV=[["painel","◔","Painel"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
+  else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
   else if(editing) body=h(FormFill,Object.assign({},ctx,{init:editing}));
   else if(view==="painel") body=h(Painel,ctx);
   else if(view==="documentos") body=h(Documentos,ctx);
@@ -342,7 +367,7 @@ function App(){
     h("div",{className:"ip-shell"},
       h("aside",{className:"ip-side ip-noprint"},
         h("div",{className:"ip-brand"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null, h("div",null,h("b",null,"Qualidade ISO"),h("div",{className:"ip-faint",style:{fontSize:"11px"}},"INPERSON"))),
-        NAV.map(function(n){ return h("div",{key:n[0],className:cx("ip-nav",(view===n[0]&&!editing&&!docView)?"on":""),onClick:function(){ setDocView(null); setEditing(null); setView(n[0]); }}, h("span",{className:"ic"},n[1]), n[2]); }),
+        NAV.map(function(n){ return h("div",{key:n[0],className:cx("ip-nav",(view===n[0]&&!editing&&!docView&&!editDoc)?"on":""),onClick:function(){ setDocView(null); setEditing(null); setEditDoc(null); setView(n[0]); }}, h("span",{className:"ic"},n[1]), n[2]); }),
         h("div",{style:{flex:1}}),
         h(InstallBtn,{deferred:defer,clear:function(){ setDefer(null); }}),
         h("div",{className:"ip-faint",style:{fontSize:"11px",margin:"12px 8px 4px"}},(perfil&&perfil.nome)||sess.user.email),
@@ -421,6 +446,7 @@ function Documentos(p){
         h("thead",null,h("tr",null,h("th",null,"Código"),h("th",null,"Título"),h("th",null,"Tipo"),h("th",null,"Frequência"),h("th",null,"Rev."),h("th",null,"Status"),h("th",null,""))),
         h("tbody",null, groups[s].map(function(d){
           var form=FORMS[d.codigo];
+          var f=form?freqDe(d.codigo):null;
           return h("tr",{key:d.id},
             h("td",null,h("b",null,d.codigo)),
             h("td",null,d.titulo),
@@ -428,7 +454,9 @@ function Documentos(p){
             h("td",{className:"ip-muted"},freqLabel(d.frequencia)),
             h("td",{className:"ip-muted"},d.revisao),
             h("td",null,h(Badge,{cls:d.status==="vigente"?"ok":"dim",txt:d.status})),
-            h("td",null, form?h("button",{className:"ip-btn sm",onClick:function(){ p.setEditing({codigo:d.codigo,competencia:nowYM(),reg:findReg(p.regsC,d.codigo,nowYM())}); }},"Preencher"):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—"))
+            h("td",null, form?h("button",{className:"ip-btn sm",onClick:function(){ var f=freqDe(d.codigo); var c=f==="semestral"?lastSemestres(1)[0]:(f==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:f==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
+              :(d.codigo==="INV-ATI-001"?h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setView("inventario"); }},"Abrir inventário")
+              :h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setEditDoc(d); }},"Editar / PDF")))
           );
         }))
       ))
@@ -436,15 +464,47 @@ function Documentos(p){
   );
 }
 
-/* ---------- Inventário (somente leitura no v1) ---------- */
+/* ---------- Inventário (CRUD) ---------- */
 function Inventario(p){
+  var CATS=["switch","ap","gateway","dvr","camera","amplificador","nobreak","rack","servidor","outro"];
+  function blank(){ return {categoria:"outro",descricao:"",marca_modelo:"",numero_serie:"",localizacao:"",etiqueta:"",quantidade:1,obs:""}; }
+  var ed=useState(null), edit=ed[0], setEdit=ed[1];
+  var fst=useState(blank()), f=fst[0], setF=fst[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  function open(a){ setEdit(a||{}); setF(a?Object.assign(blank(),a):blank()); }
+  function close(){ setEdit(null); }
+  function up(k,v){ setF(Object.assign({},f,(function(){var o={};o[k]=v;return o;})())); }
+  function salvar(){ setSaving(true);
+    var payload={cliente_id:p.clienteId,categoria:f.categoria,descricao:f.descricao,marca_modelo:f.marca_modelo,numero_serie:f.numero_serie,localizacao:f.localizacao,etiqueta:f.etiqueta,quantidade:parseInt(f.quantidade,10)||1,obs:f.obs};
+    var q=(edit&&edit.id)?sb.from("iso_ativos").update(payload).eq("id",edit.id):sb.from("iso_ativos").insert(payload);
+    q.then(function(r){ setSaving(false); if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Ativo salvo ✓"); close(); p.reload(); }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+  }
+  function remover(a){ if(!window.confirm("Excluir o ativo \""+a.descricao+"\"? Esta ação não pode ser desfeita.")) return;
+    sb.from("iso_ativos").delete().eq("id",a.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Ativo excluído"); p.reload(); });
+  }
   return h("div",null,
-    h(TopBar,{title:"Inventário de ativos",sub:"INV-ATI-001 · "+p.ativosC.length+" itens",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Inventário de ativos",sub:"INV-ATI-001 · "+p.ativosC.length+" itens",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+      right:h("button",{className:"ip-btn sm",onClick:function(){ open(null); }},"+ Novo ativo")}),
+    edit?h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
+      h("h3",{style:{fontSize:"16px",marginBottom:"12px"}},edit.id?"Editar ativo":"Novo ativo"),
+      h("div",{className:"grid k3"},
+        h(Field,{label:"Categoria"}, h("select",{className:"ip-sel",value:f.categoria,onChange:function(e){up("categoria",e.target.value);}}, CATS.map(function(c){return h("option",{key:c,value:c},c);}))),
+        h(Field,{label:"Descrição"}, h("input",{className:"ip-input",value:f.descricao,onChange:function(e){up("descricao",e.target.value);}})),
+        h(Field,{label:"Marca/Modelo"}, h("input",{className:"ip-input",value:f.marca_modelo||"",onChange:function(e){up("marca_modelo",e.target.value);}})),
+        h(Field,{label:"Nº de série"}, h("input",{className:"ip-input",value:f.numero_serie||"",onChange:function(e){up("numero_serie",e.target.value);}})),
+        h(Field,{label:"Localização"}, h("input",{className:"ip-input",value:f.localizacao||"",onChange:function(e){up("localizacao",e.target.value);}})),
+        h(Field,{label:"Etiqueta"}, h("input",{className:"ip-input",value:f.etiqueta||"",onChange:function(e){up("etiqueta",e.target.value);}})),
+        h(Field,{label:"Quantidade"}, h("input",{className:"ip-input",type:"number",value:f.quantidade,onChange:function(e){up("quantidade",e.target.value);}}))
+      ),
+      h(Field,{label:"Observações"}, h("input",{className:"ip-input",value:f.obs||"",onChange:function(e){up("obs",e.target.value);}})),
+      h("div",{style:{display:"flex",gap:"10px"}}, h("button",{className:"ip-btn",disabled:saving||!f.descricao,onClick:salvar},saving?"Salvando…":"Salvar"), h("button",{className:"ip-btn ghost",onClick:close},"Cancelar"))
+    ):null,
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
-      h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"))),
+      h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"),h("th",null,""))),
       h("tbody",null, p.ativosC.length?p.ativosC.map(function(a){ return h("tr",{key:a.id},
-        h("td",{className:"ip-muted"},a.categoria),h("td",null,a.descricao),h("td",{className:"ip-muted"},a.marca_modelo||"—"),h("td",{className:"ip-muted"},a.numero_serie||"—"),h("td",{className:"ip-muted"},a.localizacao||"—"),h("td",{className:"ip-muted"},a.etiqueta||"—"),h("td",null,a.quantidade||1)
-      ); }):h("tr",null,h("td",{colSpan:7,className:"ip-faint"},"Sem ativos cadastrados.")))
+        h("td",{className:"ip-muted"},a.categoria),h("td",null,a.descricao),h("td",{className:"ip-muted"},a.marca_modelo||"—"),h("td",{className:"ip-muted"},a.numero_serie||"—"),h("td",{className:"ip-muted"},a.localizacao||"—"),h("td",{className:"ip-muted"},a.etiqueta||"—"),h("td",null,a.quantidade||1),
+        h("td",null,h("div",{style:{display:"flex",gap:"6px",justifyContent:"flex-end"}}, h("button",{className:"ip-btn ghost sm",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn ghost sm",onClick:function(){ remover(a); }},"✕")))
+      ); }):h("tr",null,h("td",{colSpan:8,className:"ip-faint"},"Sem ativos cadastrados.")))
     ))
   );
 }
@@ -452,16 +512,23 @@ function Inventario(p){
 /* ---------- Picker de evidência ---------- */
 function FormPicker(p){
   var s=useState(MENSAIS[0]), code=s[0], setCode=s[1];
+  var freq=freqDe(code);
   var cm=useState(nowYM()), comp=cm[0], setComp=cm[1];
-  var opts=lastYMs(12);
-  var d=docByCode(p.docsC,code)||{};
-  var existing=findReg(p.regsC,code,comp);
+  function pick(c){ setCode(c); var f=freqDe(c); setComp(f==="mensal"?nowYM():(f==="semestral"?lastSemestres(1)[0]:todayISO())); }
+  var ocorrencia=(freq==="ocorrencia");
+  var existing=ocorrencia?null:findReg(p.regsC,code,comp);
+  var compCtrl;
+  if(freq==="mensal") compCtrl=h("select",{className:"ip-sel",value:comp,onChange:function(e){setComp(e.target.value);}}, lastYMs(12).map(function(o){ return h("option",{key:o,value:o},ymLabel(o)); }));
+  else if(freq==="semestral") compCtrl=h("select",{className:"ip-sel",value:comp,onChange:function(e){setComp(e.target.value);}}, lastSemestres(6).map(function(o){ return h("option",{key:o,value:o},semLabel(o)); }));
+  else compCtrl=h("input",{className:"ip-input",type:"date",value:comp,onChange:function(e){setComp(e.target.value);}});
   return h("div",null,
-    h(TopBar,{title:"Preencher evidência",sub:"Escolha o formulário e a competência",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Preencher evidência",sub:"Escolha o formulário e o período",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"ip-card ip-pad",style:{maxWidth:"640px"}},
-      h(Field,{label:"Formulário (evidência)"}, h("select",{className:"ip-sel",value:code,onChange:function(e){setCode(e.target.value);}}, MENSAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); }))),
-      h(Field,{label:"Competência (mês)"}, h("select",{className:"ip-sel",value:comp,onChange:function(e){setComp(e.target.value);}}, opts.map(function(o){ return h("option",{key:o,value:o},ymLabel(o)); }))),
-      existing?h("div",{className:"ip-pill",style:{marginBottom:"14px"}}, "Já existe registro ("+statusInfo(existing.status).txt+(existing.numero?" · nº "+existing.numero:"")+") — abrir para editar/ver."):h("div",{className:"ip-faint",style:{fontSize:"12px",marginBottom:"14px"}},"Nenhum registro nesta competência — será criado novo."),
+      h(Field,{label:"Formulário (evidência)"}, h("select",{className:"ip-sel",value:code,onChange:function(e){pick(e.target.value);}},
+        h("optgroup",{label:"Mensais"}, MENSAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); })),
+        h("optgroup",{label:"Eventuais / periódicos"}, EVENTUAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); })))),
+      h(Field,{label: ocorrencia?"Data da ocorrência":(freq==="semestral"?"Semestre":"Competência (mês)")}, compCtrl),
+      ocorrencia?h("div",{className:"ip-faint",style:{fontSize:"12px",marginBottom:"14px"}},"Cada ocorrência gera um novo registro numerado."):(existing?h("div",{className:"ip-pill",style:{marginBottom:"14px"}}, "Já existe registro ("+statusInfo(existing.status).txt+(existing.numero?" · nº "+existing.numero:"")+") — abrir para editar/ver."):h("div",{className:"ip-faint",style:{fontSize:"12px",marginBottom:"14px"}},"Nenhum registro neste período — será criado novo.")),
       h("button",{className:"ip-btn",onClick:function(){ p.setEditing({codigo:code,competencia:comp,reg:existing}); }}, existing?"Abrir registro":"Preencher novo")
     )
   );
@@ -479,12 +546,14 @@ function Historico(p){
       h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Competência"),h("th",null,"Nº"),h("th",null,"Status"),h("th",null,"Responsável"),h("th",null,"Concluído"),h("th",null,""))),
       h("tbody",null, regs.length?regs.map(function(r){ var si=statusInfo(r.status); var dd=docByCode(p.docsC,r.documento_codigo)||{}; return h("tr",{key:r.id},
         h("td",null,h("b",null,r.documento_codigo),h("div",{className:"ip-faint",style:{fontSize:"11px"}},dd.titulo||"")),
-        h("td",null,r.competencia?ymLabel(r.competencia):"—"),
+        h("td",null,r.competencia?compLabel(r.competencia):"—"),
         h("td",null,r.numero||"—"),
         h("td",null,h(Badge,si)),
         h("td",{className:"ip-muted"},r.responsavel||"—"),
         h("td",{className:"ip-muted"},r.concluido_em?brDate(r.concluido_em):"—"),
-        h("td",null,h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setDocView(r); }},"Ver / PDF"))
+        h("td",null,h("div",{style:{display:"flex",gap:"6px",justifyContent:"flex-end"}},
+          h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setEditing({codigo:r.documento_codigo,competencia:r.competencia,reg:r}); }},"Editar"),
+          h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setDocView(r); }},"Ver / PDF")))
       ); }):h("tr",null,h("td",{colSpan:7,className:"ip-faint"},"Nenhuma evidência ainda.")))
     ))
   );
@@ -499,6 +568,9 @@ function FormFill(p){
     if(reg&&reg.dados&&Object.keys(reg.dados).length) return reg.dados;
     if(def.kind==="checklist") return {itens:def.itens.map(function(it){return {item:it,resultado:"",obs:""};}),dataRef:todayISO()};
     if(def.kind==="kpi"){ var v={}; def.campos.forEach(function(c){v[c.k]="";}); return {valores:v,dataRef:todayISO()}; }
+    if(def.kind==="campos"){ var vc={}; def.campos.forEach(function(c){vc[c.k]="";}); return {valores:vc,dataRef:todayISO()}; }
+    if(def.kind==="auditoria") return {grupos:def.grupos.map(function(g){ return {clausula:g.clausula,perguntas:g.perguntas.map(function(q){ return {q:q,resultado:"",obs:""}; })}; }),dataRef:todayISO()};
+    if(def.kind==="declaracao") return {texto:def.textoPadrao||"",periodo:comp,dataRef:todayISO()};
     return {linhas:[],dataRef:todayISO()};
   }
   var ds=useState(initDados), dados=ds[0], setDados=ds[1];
@@ -510,6 +582,7 @@ function FormFill(p){
   function setItem(i,k,val){ var it=dados.itens.slice(); it[i]=Object.assign({},it[i],{}); it[i][k]=val; setDados(Object.assign({},dados,{itens:it})); }
   function setVal(k,val){ setDados(Object.assign({},dados,{valores:Object.assign({},dados.valores,{[k]:val})})); }
   function setRef(val){ setDados(Object.assign({},dados,{dataRef:val})); }
+  function setAud(gi,qi,k,val){ var gs=dados.grupos.slice(); var g=Object.assign({},gs[gi]); var ps=g.perguntas.slice(); ps[qi]=Object.assign({},ps[qi]); ps[qi][k]=val; g.perguntas=ps; gs[gi]=g; setDados(Object.assign({},dados,{grupos:gs})); }
   function addLinha(){ var l=dados.linhas.slice(); var o={}; def.colunas.forEach(function(c){o[c.k]="";}); l.push(o); setDados(Object.assign({},dados,{linhas:l})); }
   function setLinha(i,k,val){ var l=dados.linhas.slice(); l[i]=Object.assign({},l[i]); l[i][k]=val; setDados(Object.assign({},dados,{linhas:l})); }
   function delLinha(i){ var l=dados.linhas.slice(); l.splice(i,1); setDados(Object.assign({},dados,{linhas:l})); }
@@ -535,6 +608,24 @@ function FormFill(p){
     ); }));
   } else if(def.kind==="kpi"){
     corpo=h("div",{className:"grid k3"}, def.campos.map(function(c){ return h(Field,{key:c.k,label:c.l+(c.suf?" ("+c.suf+")":"")}, h("input",{className:"ip-input",type:"number",value:(dados.valores[c.k]||""),onChange:function(e){setVal(c.k,e.target.value);}})); }));
+  } else if(def.kind==="campos"){
+    corpo=h("div",{className:"grid k2"}, def.campos.map(function(c){
+      var val=(dados.valores||{})[c.k]||"";
+      var inp = c.t==="textarea"?h("textarea",{className:"ip-input",rows:2,value:val,onChange:function(e){setVal(c.k,e.target.value);}})
+        : c.t==="select"?h("select",{className:"ip-sel",value:val,onChange:function(e){setVal(c.k,e.target.value);}}, [h("option",{key:"_",value:""},"—")].concat((c.opts||[]).map(function(o){return h("option",{key:o,value:o},o);})))
+        : h("input",{className:"ip-input",type:c.t==="date"?"date":"text",value:val,onChange:function(e){setVal(c.k,e.target.value);}});
+      return h(Field,{key:c.k,label:c.l},inp);
+    }));
+  } else if(def.kind==="auditoria"){
+    corpo=h("div",null,(dados.grupos||[]).map(function(g,gi){ return h("div",{key:gi},
+      h("div",{className:"sec-h"},g.clausula),
+      g.perguntas.map(function(q,qi){ return h("div",{key:qi,className:"ck-row"},
+        h("div",null, h("div",{style:{fontWeight:500}},q.q), h("input",{className:"ip-input",style:{marginTop:"6px",fontSize:"12px"},placeholder:"Evidência / observação",value:q.obs||"",onChange:function(e){setAud(gi,qi,"obs",e.target.value);}})),
+        h("div",{className:"seg"}, [{v:"Conforme",c:"ok"},{v:"Parcial",c:"na"},{v:"Não",c:"nc"}].map(function(o){ return h("button",{key:o.v,type:"button",className:cx(q.resultado===o.v?"on":"",o.c),onClick:function(){setAud(gi,qi,"resultado",o.v);}},o.v); }))
+      ); })
+    ); }));
+  } else if(def.kind==="declaracao"){
+    corpo=h(Field,{label:"Texto da declaração (editável)"}, h("textarea",{className:"ip-input",rows:8,value:dados.texto||"",onChange:function(e){setDados(Object.assign({},dados,{texto:e.target.value}));}}));
   } else {
     corpo=h("div",null, h("table",{className:"ip-tbl"},
       h("thead",null,h("tr",null, def.colunas.map(function(c){return h("th",{key:c.k},c.l);}), h("th",null,""))),
@@ -544,7 +635,7 @@ function FormFill(p){
 
   return h("div",null,
     h("div",{className:"ip-topbar ip-noprint"},
-      h("div",null, h("div",{className:"ip-h1"},doc.codigo+" — "+doc.titulo), h("div",{className:"ip-sub"},"Competência "+ymLabel(comp)+" · "+p.clienteNome+(reg?(" · "+statusInfo(reg.status).txt):" · novo"))),
+      h("div",null, h("div",{className:"ip-h1"},doc.codigo+" — "+doc.titulo), h("div",{className:"ip-sub"},"Período "+compLabel(comp)+" · "+p.clienteNome+(reg?(" · "+statusInfo(reg.status).txt):" · novo"))),
       h("button",{className:"ip-btn ghost",onClick:function(){ p.setEditing(null); p.setView("painel"); }},"← Voltar")
     ),
     h("div",{className:"ip-card ip-pad"},
@@ -571,7 +662,7 @@ function DocView(p){
   var doc=docByCode(p.docsC,code)||{codigo:code,titulo:code,revisao:"01"};
   var dados=reg.dados||{};
   var emissao=reg.concluido_em?brDate(reg.concluido_em):(dados.dataRef?brDate(dados.dataRef):brDate(todayISO()));
-  function resClass(v){ if(/^OK$|Conforme/i.test(v)) return "res-ok"; if(/NC|Não/i.test(v)) return "res-nc"; if(/NA|N\/A/i.test(v)) return "res-na"; return ""; }
+  function resClass(v){ if(/^OK$|Conforme/i.test(v)) return "res-ok"; if(/Parcial/i.test(v)) return "res-pa"; if(/NC|Não|Nao/i.test(v)) return "res-nc"; if(/NA|N\/A/i.test(v)) return "res-na"; return ""; }
   var corpo;
   if(def.kind==="checklist"){
     corpo=h("table",null, h("thead",null,h("tr",null,h("th",{style:{width:"55%"}},"Item verificado"),h("th",null,"Resultado"),h("th",null,"Observação"))),
@@ -579,6 +670,17 @@ function DocView(p){
   } else if(def.kind==="kpi"){
     corpo=h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"60%"}},"Indicador"),h("th",null,"Valor"))),
       h("tbody",null,def.campos.map(function(c){ return h("tr",{key:c.k},h("td",null,c.l),h("td",null,((dados.valores||{})[c.k]||"—")+(c.suf&&(dados.valores||{})[c.k]?" "+c.suf:""))); })));
+  } else if(def.kind==="campos"){
+    corpo=h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"38%"}},"Campo"),h("th",null,"Conteúdo"))),
+      h("tbody",null,def.campos.map(function(c){ var val=(dados.valores||{})[c.k]; return h("tr",{key:c.k},h("td",null,c.l),h("td",null,(val&&String(val).length)?String(val):"—")); })));
+  } else if(def.kind==="auditoria"){
+    corpo=h("div",null,(dados.grupos||[]).map(function(g,gi){ return h("div",{key:gi},
+      h("div",{style:{fontWeight:600,color:"#0d2440",margin:"12px 0 4px",fontSize:"13px"}},g.clausula),
+      h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"52%"}},"Requisito"),h("th",null,"Resultado"),h("th",null,"Evidência"))),
+        h("tbody",null,(g.perguntas||[]).map(function(q,qi){ return h("tr",{key:qi},h("td",null,q.q),h("td",null,h("span",{className:resClass(q.resultado)},q.resultado||"—")),h("td",null,q.obs||"")); }))));
+    }));
+  } else if(def.kind==="declaracao"){
+    corpo=h("div",{style:{fontSize:"13px",lineHeight:"1.7",color:"#1d3349",whiteSpace:"pre-wrap"}},dados.texto||def.textoPadrao||"");
   } else {
     corpo=h("table",null,h("thead",null,h("tr",null,def.colunas.map(function(c){return h("th",{key:c.k},c.l);}))),
       h("tbody",null,(dados.linhas||[]).length?dados.linhas.map(function(ln,i){ return h("tr",{key:i},def.colunas.map(function(c){return h("td",{key:c.k},ln[c.k]||"—");})); }):h("tr",null,h("td",{colSpan:def.colunas.length},"Sem lançamentos."))));
@@ -595,7 +697,7 @@ function DocView(p){
       h("div",{className:"dc-meta"},
         h("div",null,h("b",null,"Código"),doc.codigo),
         h("div",null,h("b",null,"Revisão"),doc.revisao||"01"),
-        h("div",null,h("b",null,"Competência"),reg.competencia?ymLabel(reg.competencia):"—"),
+        h("div",null,h("b",null,"Período"),reg.competencia?compLabel(reg.competencia):"—"),
         h("div",null,h("b",null,"Emissão"),emissao)),
       h("div",{className:"dc-body"},
         h("h2",{className:"dc-title"},doc.titulo),
@@ -606,6 +708,60 @@ function DocView(p){
           h("div",{className:"s"},(reg.responsavel||EMP.elaborador||"Isaac Nogueira / INPERSON"),h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Elaborado por (INPERSON)")),
           h("div",{className:"s"},(reg.aprovado_por||" "),h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Aprovado por (Cliente)")))
       ),
+      h("div",{className:"dc-foot"},(EMP.nome||"INPERSON")+" · CNPJ "+(EMP.cnpj||"")+" · "+(EMP.contato||"")+" · "+(CFG.APP_URL||""))
+    )
+  );
+}
+
+/* ---------- DocEditor (documentos estáticos · versionamento + PDF) ---------- */
+function DocEditor(p){
+  var doc=p.doc;
+  var cs=useState(doc.conteudo||""), conteudo=cs[0], setConteudo=cs[1];
+  var rs=useState(doc.revisao||"01"), revisao=rs[0], setRevisao=rs[1];
+  var ns=useState(""), nota=ns[0], setNota=ns[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  function bump(r){ var n=parseInt(r,10); if(isNaN(n)) return r; n=n+1; return (n<10?"0":"")+n; }
+  function salvar(novaRev){ setSaving(true);
+    function doUpdate(rev){
+      sb.from("iso_documentos").update({conteudo:conteudo,revisao:rev,status:"vigente",atualizado_em:new Date().toISOString()}).eq("id",doc.id).then(function(r){
+        setSaving(false); if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; }
+        p.flash(novaRev?("Revisão "+rev+" publicada ✓"):"Documento salvo ✓"); p.reload(); p.setEditDoc(null); p.setView("documentos");
+      }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+    }
+    if(novaRev){
+      sb.from("iso_versoes").insert({documento_id:doc.id,revisao:doc.revisao||"01",conteudo:doc.conteudo||"",alterado_por:(p.perfil&&p.perfil.nome)||p.user.email,nota:nota||("Substituída pela rev. "+bump(revisao))}).then(function(){ var nr=bump(revisao); setRevisao(nr); doUpdate(nr); }).catch(function(e){ setSaving(false); p.flash("Erro ao versionar: "+String(e),"err"); });
+    } else { doUpdate(revisao); }
+  }
+  return h("div",null,
+    h("div",{className:"ip-topbar ip-noprint"},
+      h("div",null,h("div",{className:"ip-h1"},doc.codigo+" — "+doc.titulo),h("div",{className:"ip-sub"},"Documento controlado (estático) · revisão "+revisao)),
+      h("div",{style:{display:"flex",gap:"10px"}},
+        h("button",{className:"ip-btn ghost",onClick:function(){ p.setEditDoc(null); p.setView("documentos"); }},"← Voltar"),
+        h("button",{className:"ip-btn",onClick:function(){ window.print(); }},"⎙ PDF"))),
+    h("div",{className:"ip-card ip-pad ip-noprint",style:{marginBottom:"18px"}},
+      h("div",{className:"grid k2"},
+        h(Field,{label:"Revisão"}, h("input",{className:"ip-input",value:revisao,onChange:function(e){setRevisao(e.target.value);}})),
+        h(Field,{label:"Nota da revisão (ao publicar nova)"}, h("input",{className:"ip-input",placeholder:"o que mudou nesta revisão",value:nota,onChange:function(e){setNota(e.target.value);}}))),
+      h(Field,{label:"Conteúdo do documento"}, h("textarea",{className:"ip-input",rows:12,value:conteudo,onChange:function(e){setConteudo(e.target.value);}})),
+      h("div",{style:{display:"flex",gap:"10px"}},
+        h("button",{className:"ip-btn ghost",disabled:saving,onClick:function(){ salvar(false); }},saving?"Salvando…":"Salvar (mesma revisão)"),
+        h("button",{className:"ip-btn",disabled:saving,onClick:function(){ salvar(true); }},"Publicar nova revisão"))),
+    h("div",{className:"doc-ctrl"},
+      h("div",{className:"dc-head"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null,
+        h("div",{className:"t"}, h("b",null,EMP.nome||"INPERSON Soluções em Tecnologia"), h("span",null,"Sistema de Gestão da Qualidade · ISO 9001:2015")),
+        h("span",{className:"dc-tag"},"Documento controlado")),
+      h("div",{className:"dc-meta"},
+        h("div",null,h("b",null,"Código"),doc.codigo),
+        h("div",null,h("b",null,"Revisão"),revisao),
+        h("div",null,h("b",null,"Tipo"),doc.tipo),
+        h("div",null,h("b",null,"Emissão"),brDate(todayISO()))),
+      h("div",{className:"dc-body"},
+        h("h2",{className:"dc-title"},doc.titulo),
+        h("div",{style:{fontSize:"12px",color:"#5b6b80",marginBottom:"10px"}},"Cliente: "+p.clienteNome),
+        h("div",{style:{fontSize:"13px",lineHeight:"1.7",color:"#1d3349",whiteSpace:"pre-wrap"}},conteudo||"(documento sem conteúdo — edite acima e salve.)"),
+        h("div",{className:"dc-sign"},
+          h("div",{className:"s"},(EMP.elaborador||"Isaac Nogueira / INPERSON"),h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Elaborado por (INPERSON)")),
+          h("div",{className:"s"}," ",h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Aprovado por (Cliente)")))),
       h("div",{className:"dc-foot"},(EMP.nome||"INPERSON")+" · CNPJ "+(EMP.cnpj||"")+" · "+(EMP.contato||"")+" · "+(CFG.APP_URL||""))
     )
   );
