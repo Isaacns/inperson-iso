@@ -72,8 +72,8 @@ h1,h2,h3{font-weight:300;margin:0}
 .bdg.dim{color:var(--ip-muted);background:rgba(255,255,255,.05);border:1px solid var(--glass-brd)}
 /* buttons / inputs */
 .ip-btn{position:relative;display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:10px 16px;border-radius:var(--ip-radius-sm);border:1px solid var(--ip-accent);background:linear-gradient(135deg,var(--ip-accent),var(--ip-accent-2));color:#03101c;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:.18s}
-.ip-btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(116,176,216,.35)}
-.ip-btn:active{transform:translateY(1px)}
+.ip-btn:hover{filter:brightness(1.07);box-shadow:0 6px 16px rgba(116,176,216,.26)}
+.ip-btn:active{filter:brightness(.95)}
 .ip-btn:disabled{opacity:.5;cursor:not-allowed}
 .ip-btn.ghost{background:rgba(255,255,255,.04);border-color:var(--glass-brd);color:var(--ip-text)}
 .ip-btn.ghost:hover{background:rgba(116,176,216,.12);border-color:var(--ip-accent)}
@@ -145,16 +145,32 @@ h1,h2,h3{font-weight:300;margin:0}
 .ip-authbox .logo-wrap img{margin:0;animation:ip-logopulse 3.2s ease-in-out infinite;position:relative;z-index:2}
 .ip-authbox .logo-wrap::after{content:"";position:absolute;width:64px;height:64px;border-radius:16px;border:1px solid var(--ip-accent);animation:ip-ring 3.2s ease-out infinite;z-index:1}
 .ip-authbox{animation:ip-fadeup .5s ease}
-.ip-card{transition:transform .2s ease, box-shadow .2s ease}
-.ip-card.lift:hover{transform:translateY(-3px);box-shadow:0 16px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14)}
-.kpi-card{animation:ip-fadeup .5s ease both}
+.ip-card{transition:box-shadow .2s ease}
+.ip-card.lift:hover{box-shadow:0 14px 38px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12)}
+.kpi-card{animation:ip-fadeup .45s ease both}
 .kpi-card:nth-child(1){animation-delay:.02s}.kpi-card:nth-child(2){animation-delay:.08s}.kpi-card:nth-child(3){animation-delay:.14s}.kpi-card:nth-child(4){animation-delay:.2s}
-.ip-nav{transition:background .15s ease,color .15s ease,transform .15s ease,border-color .15s ease}
-.ip-nav:hover{transform:translateX(2px)}
-.ip-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .6s ease}
-.ip-btn:not(.ghost):hover::after{transform:translateX(120%)}
+.ip-nav{transition:background .15s ease,color .15s ease,border-color .15s ease}
 .seg button{transition:background .15s ease,color .15s ease}
 .ip-install-login{width:100%;margin-top:10px;animation:ip-fadeup .4s ease}
+
+/* Botão Instalar app (sidebar) */
+.ip-install{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 14px;border-radius:12px;cursor:pointer;font-weight:600;font-size:13px;letter-spacing:.3px;color:var(--ip-text);background:linear-gradient(135deg,rgba(116,176,216,.20),rgba(116,176,216,.06));border:1px solid var(--ip-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.10);transition:background .18s ease,box-shadow .18s ease}
+.ip-install:hover{background:linear-gradient(135deg,rgba(116,176,216,.32),rgba(116,176,216,.12));box-shadow:0 6px 18px rgba(116,176,216,.30)}
+.ip-install .ic{font-size:15px;line-height:1}
+
+/* Ações em tabela: tamanho consistente, sem movimento */
+.ip-actions{display:flex;gap:8px;justify-content:flex-end}
+.ip-tbl th.col-acoes,.ip-tbl td.col-acoes{text-align:right;white-space:nowrap}
+.ip-btn.act{min-width:96px}
+.ip-btn.iconbtn{min-width:0;width:34px;height:32px;padding:0;font-size:14px}
+.ip-btn.danger{background:rgba(217,101,91,.10);border-color:rgba(217,101,91,.5);color:#e7948c}
+.ip-btn.danger:hover{background:rgba(217,101,91,.20);border-color:var(--ip-danger);filter:none}
+
+/* Seção de documentos */
+.sec-h{display:flex;align-items:center;gap:10px}
+.sec-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--ip-border),transparent)}
+.tbl-codigo{color:var(--ip-accent);font-weight:600;letter-spacing:.3px}
+.ip-tbl tbody tr:last-child td{border-bottom:none}
 </style>
 <script>
 // Configuração de conexão — INPERSON Qualidade ISO (app independente)
@@ -258,7 +274,7 @@ function Badge(p){ return h("span",{className:cx("bdg",p.cls)},p.txt); }
 function Field(p){ return h("div",{className:"field"}, p.label?h("label",{className:"ip-lbl"},p.label):null, p.children); }
 function InstallBtn(p){
   var d=p.deferred; if(!d) return null;
-  return h("button",{className:"ip-btn ghost sm",onClick:function(){ d.prompt(); d.userChoice.then(function(){ p.clear(); }); }},"⤓ Instalar app");
+  return h("button",{className:"ip-install",onClick:function(){ d.prompt(); d.userChoice.then(function(){ p.clear(); }); }}, h("span",{className:"ic"},"⤓"), "Instalar aplicativo");
 }
 
 /* ---------- Login ---------- */
@@ -443,20 +459,20 @@ function Documentos(p){
     order.map(function(s){ return h("div",{key:s},
       h("div",{className:"sec-h"},s),
       h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
-        h("thead",null,h("tr",null,h("th",null,"Código"),h("th",null,"Título"),h("th",null,"Tipo"),h("th",null,"Frequência"),h("th",null,"Rev."),h("th",null,"Status"),h("th",null,""))),
+        h("thead",null,h("tr",null,h("th",null,"Código"),h("th",null,"Título"),h("th",null,"Tipo"),h("th",null,"Frequência"),h("th",null,"Rev."),h("th",null,"Status"),h("th",{className:"col-acoes"},"Ações"))),
         h("tbody",null, groups[s].map(function(d){
           var form=FORMS[d.codigo];
           var f=form?freqDe(d.codigo):null;
           return h("tr",{key:d.id},
-            h("td",null,h("b",null,d.codigo)),
+            h("td",null,h("b",{className:"tbl-codigo"},d.codigo)),
             h("td",null,d.titulo),
             h("td",{className:"ip-muted"},d.tipo),
             h("td",{className:"ip-muted"},freqLabel(d.frequencia)),
             h("td",{className:"ip-muted"},d.revisao),
             h("td",null,h(Badge,{cls:d.status==="vigente"?"ok":"dim",txt:d.status})),
-            h("td",null, form?h("button",{className:"ip-btn sm",onClick:function(){ var f=freqDe(d.codigo); var c=f==="semestral"?lastSemestres(1)[0]:(f==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:f==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
-              :(d.codigo==="INV-ATI-001"?h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setView("inventario"); }},"Abrir inventário")
-              :h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setEditDoc(d); }},"Editar / PDF")))
+            h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"}, form?h("button",{className:"ip-btn sm act",onClick:function(){ var f=freqDe(d.codigo); var c=f==="semestral"?lastSemestres(1)[0]:(f==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:f==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
+              :(d.codigo==="INV-ATI-001"?h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setView("inventario"); }},"Abrir inventário")
+              :h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditDoc(d); }},"Editar / PDF"))))
           );
         }))
       ))
@@ -500,10 +516,10 @@ function Inventario(p){
       h("div",{style:{display:"flex",gap:"10px"}}, h("button",{className:"ip-btn",disabled:saving||!f.descricao,onClick:salvar},saving?"Salvando…":"Salvar"), h("button",{className:"ip-btn ghost",onClick:close},"Cancelar"))
     ):null,
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
-      h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"),h("th",null,""))),
+      h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, p.ativosC.length?p.ativosC.map(function(a){ return h("tr",{key:a.id},
         h("td",{className:"ip-muted"},a.categoria),h("td",null,a.descricao),h("td",{className:"ip-muted"},a.marca_modelo||"—"),h("td",{className:"ip-muted"},a.numero_serie||"—"),h("td",{className:"ip-muted"},a.localizacao||"—"),h("td",{className:"ip-muted"},a.etiqueta||"—"),h("td",null,a.quantidade||1),
-        h("td",null,h("div",{style:{display:"flex",gap:"6px",justifyContent:"flex-end"}}, h("button",{className:"ip-btn ghost sm",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn ghost sm",onClick:function(){ remover(a); }},"✕")))
+        h("td",{className:"col-acoes"},h("div",{className:"ip-actions"}, h("button",{className:"ip-btn ghost sm act",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){ remover(a); }},"✕")))
       ); }):h("tr",null,h("td",{colSpan:8,className:"ip-faint"},"Sem ativos cadastrados.")))
     ))
   );
@@ -543,7 +559,7 @@ function Historico(p){
     h(TopBar,{title:"Histórico / Arquivo",sub:p.regsC.length+" evidências registradas",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
       right:h("select",{className:"ip-sel",style:{width:"auto"},value:filt,onChange:function(e){setFilt(e.target.value);}}, [h("option",{key:"t",value:"todos"},"Todos os documentos")].concat(Object.keys(codes).sort().map(function(c){ return h("option",{key:c,value:c},c); })))}),
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
-      h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Competência"),h("th",null,"Nº"),h("th",null,"Status"),h("th",null,"Responsável"),h("th",null,"Concluído"),h("th",null,""))),
+      h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Período"),h("th",null,"Nº"),h("th",null,"Status"),h("th",null,"Responsável"),h("th",null,"Concluído"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, regs.length?regs.map(function(r){ var si=statusInfo(r.status); var dd=docByCode(p.docsC,r.documento_codigo)||{}; return h("tr",{key:r.id},
         h("td",null,h("b",null,r.documento_codigo),h("div",{className:"ip-faint",style:{fontSize:"11px"}},dd.titulo||"")),
         h("td",null,r.competencia?compLabel(r.competencia):"—"),
@@ -551,9 +567,9 @@ function Historico(p){
         h("td",null,h(Badge,si)),
         h("td",{className:"ip-muted"},r.responsavel||"—"),
         h("td",{className:"ip-muted"},r.concluido_em?brDate(r.concluido_em):"—"),
-        h("td",null,h("div",{style:{display:"flex",gap:"6px",justifyContent:"flex-end"}},
-          h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setEditing({codigo:r.documento_codigo,competencia:r.competencia,reg:r}); }},"Editar"),
-          h("button",{className:"ip-btn ghost sm",onClick:function(){ p.setDocView(r); }},"Ver / PDF")))
+        h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
+          h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditing({codigo:r.documento_codigo,competencia:r.competencia,reg:r}); }},"Editar"),
+          h("button",{className:"ip-btn sm act",onClick:function(){ p.setDocView(r); }},"Ver / PDF")))
       ); }):h("tr",null,h("td",{colSpan:7,className:"ip-faint"},"Nenhuma evidência ainda.")))
     ))
   );
