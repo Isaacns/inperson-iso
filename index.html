@@ -255,7 +255,14 @@ var FORMS={
 };
 var MENSAIS=["FOR-MAN-001","FOR-SEG-001","FOR-KPI-001","FOR-ACE-001"];
 var EVENTUAIS=["FOR-INC-001","FOR-MUD-001","FOR-AUD-001","DEC-CONF-001"];
-function freqDe(code){ if(MENSAIS.indexOf(code)>-1) return "mensal"; var d=FORMS[code]; return (d&&d.freq)||"mensal"; }
+// Modelos vindos do banco (iso_documentos.modelo). O objeto FORMS acima é apenas fallback.
+var DOCMODELOS={};
+function defDe(code){ var m=DOCMODELOS[code]; if(m && m.kind) return m; return FORMS[code]; }
+function temForm(d){ return !!((d.modelo && d.modelo.kind) || FORMS[d.codigo]); }
+function freqDoc(d){ return d.frequencia || freqDe(d.codigo); }
+function mensaisDe(docs){ return docs.filter(function(d){ return temForm(d) && freqDoc(d)==="mensal"; }); }
+function eventuaisDe(docs){ return docs.filter(function(d){ return temForm(d) && freqDoc(d)!=="mensal"; }); }
+function freqDe(code){ if(MENSAIS.indexOf(code)>-1) return "mensal"; var d=defDe(code); return (d&&d.freq)||"mensal"; }
 function semLabel(s){ var p=String(s).split("-S"); return (p[1]==="1"?"1º":"2º")+" semestre/"+p[0]; }
 function compLabel(c){ if(!c) return "—"; if(/^\d{4}-S[12]$/.test(c)) return semLabel(c); if(/^\d{4}-\d{2}-\d{2}$/.test(c)) return brDate(c); if(/^\d{4}-\d{2}$/.test(c)) return ymLabel(c); return c; }
 function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMonth()<6)?1:2; for(var i=0;i<n;i++){ out.push(y+"-S"+s); if(s===1){s=2;y--;}else{s=1;} } return out; }
@@ -338,6 +345,7 @@ function App(){
       sb.from("iso_ativos").select("*").order("ordem")
     ]).then(function(r){
       var clientes=(r[0].data||[]), docs=(r[1].data||[]), regs=(r[2].data||[]), ativos=(r[3].data||[]);
+      DOCMODELOS={}; docs.forEach(function(d){ if(d.modelo && d.modelo.kind) DOCMODELOS[d.codigo]=d.modelo; });
       setData({clientes:clientes,docs:docs,regs:regs,ativos:ativos});
       setClienteId(function(prev){ if(prev) return prev;
         var av=clientes.filter(function(c){ return /avan/i.test(c.nome); })[0];
@@ -415,14 +423,15 @@ function findReg(regs,code,comp){ return regs.filter(function(r){return r.docume
 /* ---------- Painel de conformidade ---------- */
 function Painel(p){
   var comp=nowYM();
-  var linhas=MENSAIS.map(function(code){ var d=docByCode(p.docsC,code)||{codigo:code,titulo:code}; var reg=findReg(p.regsC,code,comp); return {doc:d,reg:reg,st:reg?reg.status:"pendente"}; });
+  var mensais=mensaisDe(p.docsC);
+  var linhas=mensais.map(function(d){ var reg=findReg(p.regsC,d.codigo,comp); return {doc:d,reg:reg,st:reg?reg.status:"pendente"}; });
   var done=linhas.filter(function(l){ return l.st==="concluido"||l.st==="aprovado"; }).length;
-  var pct=Math.round(done/MENSAIS.length*100);
-  var pend=MENSAIS.length-done;
+  var pct=mensais.length?Math.round(done/mensais.length*100):0;
+  var pend=mensais.length-done;
   var mes=new Date().getMonth()+1;
   var cards=[
     {l:"Conformidade do mês",v:pct+"%",c:pct===100?"var(--ip-ok)":(pct>=50?"var(--ip-warn)":"var(--ip-danger)")},
-    {l:"Evidências mensais",v:done+"/"+MENSAIS.length,c:"var(--ip-accent)"},
+    {l:"Evidências mensais",v:done+"/"+mensais.length,c:"var(--ip-accent)"},
     {l:"Pendências do mês",v:String(pend),c:pend?"var(--ip-warn)":"var(--ip-ok)"},
     {l:"Documentos controlados",v:String(p.docsC.length),c:"var(--ip-accent)"}
   ];
@@ -454,15 +463,41 @@ function Documentos(p){
   var groups={}; var order=[];
   p.docsC.forEach(function(d){ var s=d.secao||"Outros"; if(!groups[s]){groups[s]=[];order.push(s);} groups[s].push(d); });
   function freqLabel(f){ return ({mensal:"Mensal",semestral:"Semestral",anual:"Anual",ocorrencia:"Por ocorrência",vigente:"Vigente",referencia:"Referência",unico:"Único"})[f]||f; }
+  var ns=useState(null), novo=ns[0], setNovo=ns[1];
+  var rs=useState(null), revsDoc=rs[0], setRevsDoc=rs[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  function blank(){ return {codigo:"",titulo:"",tipo:"pop",frequencia:"vigente",secao:"03 — Procedimentos (POP)",revisao:"01"}; }
+  function criar(f){
+    if(!f.codigo||!f.titulo){ p.flash("Código e título são obrigatórios.","err"); return; }
+    setSaving(true);
+    var ordem=(p.docsC.reduce(function(m,d){return Math.max(m,d.ordem||0);},0))+1;
+    sb.from("iso_documentos").insert({cliente_id:p.clienteId,codigo:f.codigo.trim().toUpperCase(),titulo:f.titulo.trim(),tipo:f.tipo,frequencia:f.frequencia,secao:f.secao,revisao:f.revisao||"01",status:"vigente",ordem:ordem})
+      .then(function(r){ setSaving(false); if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; } p.flash("Documento criado ✓"); setNovo(null); p.reload(); })
+      .catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+  }
+  function excluirDoc(d){
+    var n=p.regsC.filter(function(r){ return r.documento_codigo===d.codigo; }).length;
+    var aviso="Excluir o documento "+d.codigo+" — "+d.titulo+"?";
+    if(n) aviso+="\n\nATENÇÃO: existem "+n+" evidência(s) registrada(s) para este documento. Elas NÃO serão apagadas, mas ficarão órfãs.";
+    aviso+="\n\nEsta ação não pode ser desfeita.";
+    if(!window.confirm(aviso)) return;
+    sb.from("iso_documentos").delete().eq("id",d.id).then(function(r){
+      if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; }
+      p.flash("Documento excluído"); p.reload();
+    });
+  }
   return h("div",null,
-    h(TopBar,{title:"Documentos controlados",sub:p.docsC.length+" documentos · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Documentos controlados",sub:p.docsC.length+" documentos · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+      right:h("button",{className:"ip-btn sm",onClick:function(){ setNovo(blank()); }},"+ Novo documento")}),
+    novo?h(NovoDocumento,{f:novo,setF:setNovo,onSave:criar,saving:saving}):null,
+    revsDoc?h(Revisoes,{doc:revsDoc,onClose:function(){ setRevsDoc(null); }}):null,
     order.map(function(s){ return h("div",{key:s},
       h("div",{className:"sec-h"},s),
       h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
         h("thead",null,h("tr",null,h("th",null,"Código"),h("th",null,"Título"),h("th",null,"Tipo"),h("th",null,"Frequência"),h("th",null,"Rev."),h("th",null,"Status"),h("th",{className:"col-acoes"},"Ações"))),
         h("tbody",null, groups[s].map(function(d){
-          var form=FORMS[d.codigo];
-          var f=form?freqDe(d.codigo):null;
+          var form=temForm(d)?defDe(d.codigo):null;
+          var f=form?freqDoc(d):null;
           return h("tr",{key:d.id},
             h("td",null,h("b",{className:"tbl-codigo"},d.codigo)),
             h("td",null,d.titulo),
@@ -470,14 +505,60 @@ function Documentos(p){
             h("td",{className:"ip-muted"},freqLabel(d.frequencia)),
             h("td",{className:"ip-muted"},d.revisao),
             h("td",null,h(Badge,{cls:d.status==="vigente"?"ok":"dim",txt:d.status})),
-            h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"}, form?h("button",{className:"ip-btn sm act",onClick:function(){ var f=freqDe(d.codigo); var c=f==="semestral"?lastSemestres(1)[0]:(f==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:f==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
+            h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"},
+              form?h("button",{className:"ip-btn sm act",onClick:function(){ var fq=freqDoc(d); var c=fq==="semestral"?lastSemestres(1)[0]:(fq==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:fq==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
               :(d.codigo==="INV-ATI-001"?h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setView("inventario"); }},"Abrir inventário")
-              :h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditDoc(d); }},"Editar / PDF"))))
+              :h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditDoc(d); }},"Editar / PDF")),
+              h("button",{className:"ip-btn ghost sm iconbtn",title:"Histórico de revisões",onClick:function(){ setRevsDoc(d); }},"🕘"),
+              h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir documento",onClick:function(){ excluirDoc(d); }},"✕")))
           );
         }))
       ))
     ); })
   );
+}
+
+/* ---------- Novo documento controlado ---------- */
+function NovoDocumento(p){
+  var f=p.f, setF=p.setF;
+  function up(k,v){ var o={}; o[k]=v; setF(Object.assign({},f,o)); }
+  var TIPOS=["politica","manual","pop","it","rede","topologia","inventario","declaracao","matriz","form","outro"];
+  var FREQS=["vigente","mensal","semestral","anual","ocorrencia","referencia","unico"];
+  return h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
+    h("h3",{style:{fontSize:"16px",marginBottom:"12px"}},"Novo documento controlado"),
+    h("div",{className:"grid k3"},
+      h(Field,{label:"Código"}, h("input",{className:"ip-input",placeholder:"POP-XXX-001",value:f.codigo,onChange:function(e){up("codigo",e.target.value);}})),
+      h(Field,{label:"Título"}, h("input",{className:"ip-input",value:f.titulo,onChange:function(e){up("titulo",e.target.value);}})),
+      h(Field,{label:"Seção"}, h("input",{className:"ip-input",value:f.secao,onChange:function(e){up("secao",e.target.value);}})),
+      h(Field,{label:"Tipo"}, h("select",{className:"ip-sel",value:f.tipo,onChange:function(e){up("tipo",e.target.value);}}, TIPOS.map(function(t){return h("option",{key:t,value:t},t);}))),
+      h(Field,{label:"Frequência"}, h("select",{className:"ip-sel",value:f.frequencia,onChange:function(e){up("frequencia",e.target.value);}}, FREQS.map(function(t){return h("option",{key:t,value:t},t);}))),
+      h(Field,{label:"Revisão"}, h("input",{className:"ip-input",value:f.revisao,onChange:function(e){up("revisao",e.target.value);}}))),
+    h("div",{className:"ip-faint",style:{fontSize:"11px",marginBottom:"10px"}},"Documentos de texto (política, POP, IT…) abrem no editor com versionamento. Formulários exigem um modelo em iso_documentos.modelo."),
+    h("div",{style:{display:"flex",gap:"10px"}},
+      h("button",{className:"ip-btn",disabled:p.saving,onClick:function(){ p.onSave(f); }}, p.saving?"Salvando…":"Criar documento"),
+      h("button",{className:"ip-btn ghost",onClick:function(){ setF(null); }},"Cancelar")));
+}
+
+/* ---------- Histórico de revisões (iso_versoes) ---------- */
+function Revisoes(p){
+  var ls=useState(null), rows=ls[0], setRows=ls[1];
+  useEffect(function(){
+    sb.from("iso_versoes").select("*").eq("documento_id",p.doc.id).order("criado_em",{ascending:false})
+      .then(function(r){ setRows(r.data||[]); });
+  },[p.doc.id]);
+  return h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
+    h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}},
+      h("h3",{style:{fontSize:"16px"}},"Histórico de revisões — "+p.doc.codigo),
+      h("button",{className:"ip-btn ghost sm",onClick:p.onClose},"Fechar")),
+    rows===null?h("div",{className:"ip-muted"},h("span",{className:"spin"})," Carregando…")
+    :(rows.length?h("table",{className:"ip-tbl"},
+        h("thead",null,h("tr",null,h("th",null,"Revisão"),h("th",null,"Data"),h("th",null,"Alterado por"),h("th",null,"Nota"))),
+        h("tbody",null,rows.map(function(v){ return h("tr",{key:v.id},
+          h("td",null,h("b",{className:"tbl-codigo"},v.revisao)),
+          h("td",{className:"ip-muted"},brDate(v.criado_em)),
+          h("td",{className:"ip-muted"},v.alterado_por||"—"),
+          h("td",{className:"ip-muted"},v.nota||"—")); })))
+      :h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Nenhuma revisão anterior arquivada. Ao publicar uma nova revisão pelo editor, a anterior é arquivada aqui.")));
 }
 
 /* ---------- Inventário (CRUD) ---------- */
@@ -527,10 +608,12 @@ function Inventario(p){
 
 /* ---------- Picker de evidência ---------- */
 function FormPicker(p){
-  var s=useState(MENSAIS[0]), code=s[0], setCode=s[1];
-  var freq=freqDe(code);
+  var mensais=mensaisDe(p.docsC), eventuais=eventuaisDe(p.docsC);
+  var s=useState((mensais[0]||eventuais[0]||{}).codigo||""), code=s[0], setCode=s[1];
+  function freqDoCodigo(c){ var d=docByCode(p.docsC,c); return d?freqDoc(d):freqDe(c); }
+  var freq=freqDoCodigo(code);
   var cm=useState(nowYM()), comp=cm[0], setComp=cm[1];
-  function pick(c){ setCode(c); var f=freqDe(c); setComp(f==="mensal"?nowYM():(f==="semestral"?lastSemestres(1)[0]:todayISO())); }
+  function pick(c){ setCode(c); var f=freqDoCodigo(c); setComp(f==="mensal"?nowYM():(f==="semestral"?lastSemestres(1)[0]:todayISO())); }
   var ocorrencia=(freq==="ocorrencia");
   var existing=ocorrencia?null:findReg(p.regsC,code,comp);
   var compCtrl;
@@ -541,8 +624,8 @@ function FormPicker(p){
     h(TopBar,{title:"Preencher evidência",sub:"Escolha o formulário e o período",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"ip-card ip-pad",style:{maxWidth:"640px"}},
       h(Field,{label:"Formulário (evidência)"}, h("select",{className:"ip-sel",value:code,onChange:function(e){pick(e.target.value);}},
-        h("optgroup",{label:"Mensais"}, MENSAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); })),
-        h("optgroup",{label:"Eventuais / periódicos"}, EVENTUAIS.map(function(c){ var dd=docByCode(p.docsC,c)||{codigo:c,titulo:c}; return h("option",{key:c,value:c},dd.codigo+" — "+dd.titulo); })))),
+        h("optgroup",{label:"Mensais"}, mensais.map(function(dd){ return h("option",{key:dd.codigo,value:dd.codigo},dd.codigo+" — "+dd.titulo); })),
+        h("optgroup",{label:"Eventuais / periódicos"}, eventuais.map(function(dd){ return h("option",{key:dd.codigo,value:dd.codigo},dd.codigo+" — "+dd.titulo); })))),
       h(Field,{label: ocorrencia?"Data da ocorrência":(freq==="semestral"?"Semestre":"Competência (mês)")}, compCtrl),
       ocorrencia?h("div",{className:"ip-faint",style:{fontSize:"12px",marginBottom:"14px"}},"Cada ocorrência gera um novo registro numerado."):(existing?h("div",{className:"ip-pill",style:{marginBottom:"14px"}}, "Já existe registro ("+statusInfo(existing.status).txt+(existing.numero?" · nº "+existing.numero:"")+") — abrir para editar/ver."):h("div",{className:"ip-faint",style:{fontSize:"12px",marginBottom:"14px"}},"Nenhum registro neste período — será criado novo.")),
       h("button",{className:"ip-btn",onClick:function(){ p.setEditing({codigo:code,competencia:comp,reg:existing}); }}, existing?"Abrir registro":"Preencher novo")
@@ -555,6 +638,13 @@ function Historico(p){
   var fs=useState("todos"), filt=fs[0], setFilt=fs[1];
   var regs=p.regsC.filter(function(r){ return filt==="todos"||r.documento_codigo===filt; });
   var codes={}; p.regsC.forEach(function(r){ codes[r.documento_codigo]=1; });
+  function excluir(r){
+    if(!window.confirm("Excluir a evidência "+r.documento_codigo+" ("+compLabel(r.competencia)+")?\nEsta ação não pode ser desfeita.")) return;
+    sb.from("iso_registros").delete().eq("id",r.id).then(function(x){
+      if(x.error){ p.flash("Erro: "+x.error.message,"err"); return; }
+      p.flash("Evidência excluída"); p.reload();
+    });
+  }
   return h("div",null,
     h(TopBar,{title:"Histórico / Arquivo",sub:p.regsC.length+" evidências registradas",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
       right:h("select",{className:"ip-sel",style:{width:"auto"},value:filt,onChange:function(e){setFilt(e.target.value);}}, [h("option",{key:"t",value:"todos"},"Todos os documentos")].concat(Object.keys(codes).sort().map(function(c){ return h("option",{key:c,value:c},c); })))}),
@@ -569,7 +659,8 @@ function Historico(p){
         h("td",{className:"ip-muted"},r.concluido_em?brDate(r.concluido_em):"—"),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
           h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditing({codigo:r.documento_codigo,competencia:r.competencia,reg:r}); }},"Editar"),
-          h("button",{className:"ip-btn sm act",onClick:function(){ p.setDocView(r); }},"Ver / PDF")))
+          h("button",{className:"ip-btn sm act",onClick:function(){ p.setDocView(r); }},"Ver / PDF"),
+          h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir evidência",onClick:function(){ excluir(r); }},"✕")))
       ); }):h("tr",null,h("td",{colSpan:7,className:"ip-faint"},"Nenhuma evidência ainda.")))
     ))
   );
@@ -578,7 +669,7 @@ function Historico(p){
 /* ---------- FormFill (editor de evidência) ---------- */
 function FormFill(p){
   var init=p.init, code=init.codigo, comp=init.competencia, reg=init.reg;
-  var def=FORMS[code]||{kind:"kpi",campos:[]};
+  var def=defDe(code)||{kind:"kpi",campos:[]};
   var doc=docByCode(p.docsC,code)||{codigo:code,titulo:code,revisao:"01"};
   function initDados(){
     if(reg&&reg.dados&&Object.keys(reg.dados).length) return reg.dados;
@@ -674,7 +765,7 @@ function FormFill(p){
 /* ---------- DocView (documento controlado · PDF) ---------- */
 function DocView(p){
   var reg=p.reg, code=reg.documento_codigo;
-  var def=FORMS[code]||{kind:"kpi"};
+  var def=defDe(code)||{kind:"kpi"};
   var doc=docByCode(p.docsC,code)||{codigo:code,titulo:code,revisao:"01"};
   var dados=reg.dados||{};
   var emissao=reg.concluido_em?brDate(reg.concluido_em):(dados.dataRef?brDate(dados.dataRef):brDate(todayISO()));
