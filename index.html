@@ -517,7 +517,7 @@ function App(){
   var ss=useState(undefined), sess=ss[0], setSess=ss[1];
   var ps=useState(null), perfil=ps[0], setPerfil=ps[1];
   var vs=useState("painel"), view=vs[0], setView=vs[1];
-  var ds=useState({clientes:[],docs:[],regs:[],ativos:[],acomp:[],share:[]}), data=ds[0], setData=ds[1];
+  var ds=useState({clientes:[],docs:[],regs:[],ativos:[],acomp:[],share:[],chamados:[]}), data=ds[0], setData=ds[1];
   var cs=useState(""), clienteId=cs[0], setClienteId=cs[1];
   var ls=useState(true), loading=ls[0], setLoading=ls[1];
   var ts=useState(null), toast=ts[0], setToast=ts[1];
@@ -550,11 +550,12 @@ function App(){
       sb.from("iso_registros").select("*").order("criado_em",{ascending:false}),
       sb.from("iso_ativos").select("*").order("ordem"),
       sb.from("acomp_itens").select("*").order("ordem"),
-      sb.from("acomp_share").select("*")
+      sb.from("acomp_share").select("*"),
+      sb.from("iso_chamados").select("*").order("aberto_em",{ascending:false})
     ]).then(function(r){
-      var clientes=(r[0].data||[]), docs=(r[1].data||[]), regs=(r[2].data||[]), ativos=(r[3].data||[]), acomp=(r[4].data||[]), share=(r[5].data||[]);
+      var clientes=(r[0].data||[]), docs=(r[1].data||[]), regs=(r[2].data||[]), ativos=(r[3].data||[]), acomp=(r[4].data||[]), share=(r[5].data||[]), chamados=(r[6].data||[]);
       DOCMODELOS={}; docs.forEach(function(d){ if(d.modelo && d.modelo.kind) DOCMODELOS[d.codigo]=d.modelo; });
-      setData({clientes:clientes,docs:docs,regs:regs,ativos:ativos,acomp:acomp,share:share});
+      setData({clientes:clientes,docs:docs,regs:regs,ativos:ativos,acomp:acomp,share:share,chamados:chamados});
       setClienteId(function(prev){ if(prev) return prev;
         var av=clientes.filter(function(c){ return /avan/i.test(c.nome); })[0];
         return av?av.id:(clientes[0]?clientes[0].id:"");
@@ -588,17 +589,19 @@ function App(){
 
   var acompC=data.acomp.filter(function(a){ return a.cliente_id===clienteId; });
   var shareC=data.share.filter(function(s){ return s.cliente_id===clienteId; })[0]||null;
+  var chamadosC=(data.chamados||[]).filter(function(c){ return c.cliente_id===clienteId; });
 
-  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
+  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
+  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
   else if(editing) body=h(FormFill,Object.assign({},ctx,{init:editing}));
   else if(view==="painel") body=h(Painel,ctx);
   else if(view==="execucao") body=h(Execucao,ctx);
+  else if(view==="chamados") body=h(Chamados,ctx);
   else if(view==="documentos") body=h(Documentos,ctx);
   else if(view==="evidencias") body=h(FormPicker,ctx);
   else if(view==="relatorio") body=h(RelatorioMensal,ctx);
@@ -993,6 +996,8 @@ function RelatorioMensal(p){
   var ncs=p.regsC.filter(function(r){ return r.documento_codigo==="FOR-INC-001" && String(r.competencia||"").slice(0,7)===comp; });
   var dec=docByCode(p.docsC,"DEC-CONF-001")||{};
   var execPctV=pctExec(p.acompC||[]);
+  var chMes=(p.chamadosC||[]).filter(function(c){ return String((c.aberto_em||"")).slice(0,7)===comp; });
+  var chResolv=chMes.filter(function(c){ return c.status==="resolvido"||c.status==="fechado"; });
   var emissao=brDate(todayISO());
 
   return h("div",null,
@@ -1018,6 +1023,7 @@ function RelatorioMensal(p){
           h("tbody",null,
             h("tr",null,h("td",null,"Conformidade das evidências mensais"),h("td",null,h("span",{className:confPct===100?"res-ok":"res-pa"},confPct+"% ("+done+"/"+mensais.length+")"))),
             h("tr",null,h("td",null,"Execução do serviço contratado"),h("td",null,execPctV+"%")),
+            h("tr",null,h("td",null,"Chamados de atendimento no período"),h("td",null,chMes.length+" registrados · "+chResolv.length+" resolvidos")),
             h("tr",null,h("td",null,"Não conformidades registradas no mês"),h("td",null,h("span",{className:ncs.length?"res-nc":"res-ok"},String(ncs.length)))))),
 
         (kpi?h("div",null,
@@ -1243,6 +1249,83 @@ function Inventario(p){
         h("td",{className:"ip-muted"},a.categoria),h("td",null,a.descricao),h("td",{className:"ip-muted"},a.marca_modelo||"—"),h("td",{className:"ip-muted"},a.numero_serie||"—"),h("td",{className:"ip-muted"},a.localizacao||"—"),h("td",{className:"ip-muted"},a.etiqueta||"—"),h("td",null,a.quantidade||1),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"}, h("button",{className:"ip-btn ghost sm act",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){ remover(a); }},"✕")))
       ); }):h("tr",null,h("td",{colSpan:8,className:"ip-faint"},"Sem ativos cadastrados.")))
+    ))
+  );
+}
+
+/* ---------- Atendimento / Chamados (SLA) ---------- */
+function Chamados(p){
+  var CAT=["suporte","rede","servidor","cftv","sonorizacao","cabeamento","impressora","telefonia","outro"];
+  var PRI=[["baixa","Baixa","#5B9BC4"],["media","Média","#74B0D8"],["alta","Alta","#F2A03D"],["critica","Crítica","#E5484D"]];
+  var CANAIS=["whatsapp","telefone","email","presencial","sistema"];
+  var STS=[["aberto","Aberto"],["andamento","Em andamento"],["resolvido","Resolvido"],["fechado","Fechado"]];
+  function priInfo(k){ return PRI.filter(function(x){return x[0]===k;})[0]||PRI[1]; }
+  function stInfo(k){ return (STS.filter(function(x){return x[0]===k;})[0]||["aberto","Aberto"]); }
+  var chs=p.chamadosC||[];
+  function blank(){ return {titulo:"",descricao:"",categoria:"suporte",prioridade:"media",canal:"whatsapp",solicitante:"",sla_horas:24}; }
+  var ed=useState(null), edit=ed[0], setEdit=ed[1];
+  var fst=useState(blank()), f=fst[0], setF=fst[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  var flt=useState("abertos"), filt=flt[0], setFilt=flt[1];
+  function up(k,v){ setF(Object.assign({},f,(function(){var o={};o[k]=v;return o;})())); }
+  function open(a){ setEdit(a||{}); setF(a?Object.assign(blank(),a):blank()); }
+  function close(){ setEdit(null); }
+  function salvar(){ setSaving(true);
+    var payload={cliente_id:p.clienteId,titulo:f.titulo,descricao:f.descricao,categoria:f.categoria,prioridade:f.prioridade,canal:f.canal,solicitante:f.solicitante,sla_horas:parseInt(f.sla_horas,10)||24};
+    var q=(edit&&edit.id)?sb.from("iso_chamados").update(payload).eq("id",edit.id):sb.from("iso_chamados").insert(payload);
+    q.then(function(r){ setSaving(false); if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Chamado salvo ✓"); close(); p.reload(); }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+  }
+  function mudar(a,st){ var patch={status:st}; patch.resolvido_em=(st==="resolvido"||st==="fechado")?new Date().toISOString():null;
+    sb.from("iso_chamados").update(patch).eq("id",a.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Chamado "+stInfo(st)[1].toLowerCase()); p.reload(); }); }
+  function remover(a){ if(!window.confirm("Excluir o chamado "+(a.numero||"")+"?")) return;
+    sb.from("iso_chamados").delete().eq("id",a.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Chamado excluído"); p.reload(); }); }
+  function horasDesde(iso){ if(!iso) return 0; return (Date.now()-new Date(iso).getTime())/3600000; }
+  function humano(hrs){ hrs=Math.max(0,hrs); if(hrs<1) return Math.round(hrs*60)+"min"; if(hrs<48) return Math.round(hrs)+"h"; return Math.round(hrs/24)+"d"; }
+  var ym=(new Date()).toISOString().slice(0,7);
+  var abertos=chs.filter(function(c){ return c.status==="aberto"||c.status==="andamento"; });
+  var resolvidosMes=chs.filter(function(c){ return (c.status==="resolvido"||c.status==="fechado") && String(c.resolvido_em||"").slice(0,7)===ym; });
+  var estourados=abertos.filter(function(c){ return horasDesde(c.aberto_em)>(c.sla_horas||24); });
+  var temposMs=chs.filter(function(c){return c.resolvido_em&&c.aberto_em;}).map(function(c){ return new Date(c.resolvido_em)-new Date(c.aberto_em); });
+  var tmedio=temposMs.length?humano((temposMs.reduce(function(a,b){return a+b;},0)/temposMs.length)/3600000):"—";
+  var lista=chs.filter(function(c){ return filt==="todos"?true:(filt==="abertos"?(c.status==="aberto"||c.status==="andamento"):c.status===filt); });
+  function kcard(lbl,val,cor){ return h("div",{className:"ip-card ip-pad",style:{flex:1}}, h("div",{className:"ip-faint",style:{fontSize:"11px",textTransform:"uppercase",letterSpacing:".5px"}},lbl), h("div",{style:{fontSize:"26px",fontWeight:300,color:cor||"var(--ip-accent)",marginTop:"4px"}},val)); }
+  return h("div",null,
+    h(TopBar,{title:"Atendimento & Chamados",sub:"Suporte e SLA · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+      right:h("button",{className:"ip-btn sm",onClick:function(){ open(null); }},"+ Novo chamado")}),
+    h("div",{style:{display:"flex",gap:"12px",marginBottom:"16px",flexWrap:"wrap"}},
+      kcard("Abertos",String(abertos.length),"var(--ip-accent)"),
+      kcard("SLA estourado",String(estourados.length),estourados.length?"#E5484D":"var(--ip-ok)"),
+      kcard("Resolvidos no mês",String(resolvidosMes.length),"var(--ip-ok)"),
+      kcard("Tempo médio",tmedio,"var(--cli-2,var(--ip-accent-2))")),
+    edit?h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
+      h("h3",{style:{fontSize:"16px",marginBottom:"12px"}},edit.id?("Editar "+(edit.numero||"chamado")):"Novo chamado"),
+      h("div",{className:"grid k3"},
+        h(Field,{label:"Título"}, h("input",{className:"ip-input",value:f.titulo,onChange:function(e){up("titulo",e.target.value);},placeholder:"Ex.: Wi-Fi caindo na recepção"})),
+        h(Field,{label:"Categoria"}, h("select",{className:"ip-sel",value:f.categoria,onChange:function(e){up("categoria",e.target.value);}}, CAT.map(function(c){return h("option",{key:c,value:c},c);}))),
+        h(Field,{label:"Prioridade"}, h("select",{className:"ip-sel",value:f.prioridade,onChange:function(e){up("prioridade",e.target.value);}}, PRI.map(function(c){return h("option",{key:c[0],value:c[0]},c[1]);}))),
+        h(Field,{label:"Canal"}, h("select",{className:"ip-sel",value:f.canal,onChange:function(e){up("canal",e.target.value);}}, CANAIS.map(function(c){return h("option",{key:c,value:c},c);}))),
+        h(Field,{label:"Solicitante (clínica)"}, h("input",{className:"ip-input",value:f.solicitante||"",onChange:function(e){up("solicitante",e.target.value);},placeholder:"Quem abriu"})),
+        h(Field,{label:"SLA (horas)"}, h("input",{className:"ip-input",type:"number",value:f.sla_horas,onChange:function(e){up("sla_horas",e.target.value);}}))),
+      h(Field,{label:"Descrição"}, h("textarea",{className:"ip-input",rows:3,value:f.descricao||"",onChange:function(e){up("descricao",e.target.value);}})),
+      h("div",{style:{display:"flex",gap:"10px"}}, h("button",{className:"ip-btn",disabled:saving||!f.titulo,onClick:salvar},saving?"Salvando…":"Salvar"), h("button",{className:"ip-btn ghost",onClick:close},"Cancelar"))
+    ):null,
+    h("div",{className:"ip-seg ip-noprint",style:{marginBottom:"12px"}}, [["abertos","Abertos"],["todos","Todos"],["resolvido","Resolvidos"],["fechado","Fechados"]].map(function(o){ return h("button",{key:o[0],className:filt===o[0]?"on":"",onClick:function(){setFilt(o[0]);}},o[1]); })),
+    h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
+      h("thead",null,h("tr",null,h("th",null,"Nº"),h("th",null,"Chamado"),h("th",null,"Prioridade"),h("th",null,"Status"),h("th",null,"Aberto há"),h("th",{className:"col-acoes"},"Ações"))),
+      h("tbody",null, lista.length?lista.map(function(c){ var pr=priInfo(c.prioridade); var aberto=(c.status==="aberto"||c.status==="andamento"); var estr=aberto&&horasDesde(c.aberto_em)>(c.sla_horas||24);
+        return h("tr",{key:c.id},
+          h("td",{className:"ip-muted",style:{whiteSpace:"nowrap"}},c.numero||"—"),
+          h("td",null, h("div",{style:{fontWeight:500}},c.titulo), h("div",{className:"ip-faint",style:{fontSize:"11px"}},(c.categoria||"")+" · "+(c.canal||"")+(c.solicitante?(" · "+c.solicitante):""))),
+          h("td",null, h("span",{className:"ip-pill",style:{color:pr[2],borderColor:pr[2]+"55"}},pr[1])),
+          h("td",null, h("span",{className:"ip-pill",style:aberto?{}:{opacity:.7}},stInfo(c.status)[1]), estr?h("span",{className:"ip-pill",style:{color:"#E5484D",borderColor:"#E5484D55",marginLeft:"6px"}},"SLA!"):null),
+          h("td",{className:"ip-muted",style:{whiteSpace:"nowrap"}}, c.resolvido_em?("resolvido "+humano(horasDesde(c.resolvido_em))+" atrás"):humano(horasDesde(c.aberto_em))),
+          h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"},
+            c.status==="aberto"?h("button",{className:"ip-btn ghost sm act",onClick:function(){mudar(c,"andamento");}},"▶ Atender"):null,
+            (c.status==="aberto"||c.status==="andamento")?h("button",{className:"ip-btn sm act",onClick:function(){mudar(c,"resolvido");}},"✓ Resolver"):null,
+            (c.status==="resolvido")?h("button",{className:"ip-btn ghost sm act",onClick:function(){mudar(c,"aberto");}},"Reabrir"):null,
+            h("button",{className:"ip-btn ghost sm act",onClick:function(){open(c);}},"Editar"),
+            h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){remover(c);}},"✕"))));
+      }):h("tr",null,h("td",{colSpan:6,className:"ip-faint"},"Nenhum chamado neste filtro. Use \"+ Novo chamado\" para registrar o primeiro atendimento.")))
     ))
   );
 }
