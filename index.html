@@ -607,16 +607,29 @@ function Painel(p){
   var pct=mensais.length?Math.round(done/mensais.length*100):0;
   var pend=mensais.length-done;
   var mes=new Date().getMonth()+1;
+  var execItens=p.acompC||[];
+  var execPct=pctExec(execItens);
+  var execLink=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?acompanhar="+(p.shareC?p.shareC.token:"");
   var cards=[
+    {l:"Execução do serviço",v:execItens.length?execPct+"%":"—",c:execPct===100?"var(--ip-ok)":"var(--ip-accent)"},
     {l:"Conformidade do mês",v:pct+"%",c:pct===100?"var(--ip-ok)":(pct>=50?"var(--ip-warn)":"var(--ip-danger)")},
     {l:"Evidências mensais",v:done+"/"+mensais.length,c:"var(--ip-accent)"},
-    {l:"Pendências do mês",v:String(pend),c:pend?"var(--ip-warn)":"var(--ip-ok)"},
     {l:"Documentos controlados",v:String(p.docsC.length),c:"var(--ip-accent)"}
   ];
   function abrir(l){ p.setEditing({codigo:l.doc.codigo,competencia:comp,reg:l.reg}); }
+  function copiarLink(){ try{ navigator.clipboard.writeText(execLink); p.flash("Link copiado ✓"); }catch(e){ p.flash(execLink,"ok"); } }
   return h("div",null,
-    h(TopBar,{title:"Painel de conformidade",sub:"Competência "+ymLabel(comp)+" · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
+    h(TopBar,{title:"Painel · "+p.clienteNome,sub:"Visão geral do serviço e da conformidade · "+ymLabel(comp),clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"grid k4",style:{marginBottom:"18px"}}, cards.map(function(c,i){ return h("div",{key:i,className:"ip-card ip-pad kpi-card lift"}, h("div",{className:"ip-sub"},c.l), h("div",{className:"kpi-big",style:{color:c.c,marginTop:"8px"}},c.v)); })),
+    execItens.length?h("div",{className:"ip-card ip-pad",style:{marginBottom:"18px"}},
+      h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px",marginBottom:"10px"}},
+        h("h3",{style:{fontSize:"16px"}},"Execução do serviço contratado"),
+        h("div",{style:{display:"flex",gap:"8px"}}, p.shareC?h("button",{className:"ip-btn ghost sm",onClick:copiarLink},"⧉ Copiar link do cliente"):null, h("button",{className:"ip-btn sm",onClick:function(){ p.setView("execucao"); }},"Abrir Execução →"))),
+      h("div",{className:"prog"}, h("i",{style:{width:execPct+"%"}})),
+      h("div",{className:"grid k3",style:{marginTop:"14px"}}, agrupar(execItens).map(function(g){ var gp=pctExec(g.itens); return h("div",{key:g.grupo},
+        h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:"12px",marginBottom:"4px"}}, h("span",{className:"ip-muted"},g.grupo), h("b",null,gp+"%")),
+        h("div",{className:"prog"}, h("i",{style:{width:gp+"%"}}))); }))
+    ):null,
     h("div",{className:"grid k2"},
       h("div",{className:"ip-card ip-pad"},
         h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}, h("h3",{style:{fontSize:"16px"}},"O que vence este mês"), h("span",{className:"ip-pill"},ymLabel(comp))),
