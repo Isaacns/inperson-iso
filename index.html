@@ -135,6 +135,50 @@ h1,h2,h3{font-weight:300;margin:0}
 .exec-row:last-child{border-bottom:none}
 .exec-row:hover{background:rgba(116,176,216,.04)}
 .bdg{border:none;font-family:inherit}
+/* ====== Página pública do cliente (André) — timeline animada, mobile-first ====== */
+.acp{max-width:560px;margin:0 auto;padding:26px 16px 70px;position:relative;z-index:1}
+.acp-head{text-align:center;margin-bottom:20px;animation:ip-fadeup .5s ease}
+.acp-logo{display:inline-flex}
+.acp-logo img{width:56px;height:56px;border-radius:15px;animation:ip-logopulse 3.2s ease-in-out infinite}
+.acp-live{display:inline-flex;align-items:center;gap:7px;font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--ip-ok);border:1px solid var(--glass-brd);border-radius:99px;padding:5px 12px;margin:14px 0 12px;background:rgba(95,191,143,.08)}
+.acp-live .d{width:7px;height:7px;border-radius:50%;background:var(--ip-ok);box-shadow:0 0 8px var(--ip-ok);animation:ip-blink 1.4s ease-in-out infinite}
+@keyframes ip-blink{0%,100%{opacity:1}50%{opacity:.2}}
+.acp-head h1{font-size:20px;font-weight:300;margin:0;letter-spacing:.2px}
+.acp-sub{font-size:12.5px;color:var(--ip-muted);margin-top:5px}
+.acp-prog{background:var(--glass-bg);border:1px solid var(--glass-brd);border-radius:16px;padding:15px 18px;box-shadow:var(--glass-shadow);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);margin-bottom:24px}
+.acp-prog-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ip-muted)}
+.acp-prog-top b{font-size:26px;font-weight:300;color:var(--ip-accent)}
+.acp-bar{height:11px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:9px}
+.acp-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ip-accent-2),var(--ip-accent));position:relative;overflow:hidden;transition:width .7s cubic-bezier(.4,0,.2,1)}
+.acp-bar i .sh{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%);animation:acp-shimmer 1.9s ease-in-out infinite}
+@keyframes acp-shimmer{100%{transform:translateX(220%)}}
+.acp-tl{position:relative}
+.acp-step{display:grid;grid-template-columns:32px 1fr;gap:13px;animation:ip-fadeup .5s ease both}
+.acp-rail{position:relative;display:flex;flex-direction:column;align-items:center}
+.acp-node{position:relative;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;flex:none;z-index:2;transition:.3s;border:2px solid var(--ip-border-2);background:var(--ip-surface);color:var(--ip-faint)}
+.acp-node.done{background:linear-gradient(135deg,var(--ip-accent),var(--ip-accent-2));border-color:var(--ip-accent);color:#03101c}
+.acp-node.val{background:linear-gradient(135deg,var(--ip-ok),#3fae7a);border-color:var(--ip-ok);color:#04231a;box-shadow:0 0 0 4px rgba(95,191,143,.18)}
+.acp-node.run{border-color:var(--ip-accent);color:var(--ip-accent)}
+.acp-node.run::after{content:"";position:absolute;left:-2px;top:-2px;width:30px;height:30px;border-radius:50%;border:2px solid var(--ip-accent);animation:acp-ping 1.5s ease-out infinite}
+@keyframes acp-ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(2);opacity:0}}
+.acp-line{width:2px;flex:1;min-height:38px;background:var(--ip-border);margin-top:3px;position:relative;overflow:hidden}
+.acp-step.done .acp-line,.acp-step.val .acp-line{background:var(--ip-accent)}
+.acp-step.run .acp-line::after{content:"";position:absolute;left:0;right:0;height:45%;background:linear-gradient(180deg,transparent,var(--ip-accent),transparent);animation:acp-flow 1.4s linear infinite}
+@keyframes acp-flow{0%{top:-45%}100%{top:100%}}
+.acp-body{padding-bottom:22px;min-width:0}
+.acp-grp{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ip-faint)}
+.acp-item{font-size:15.5px;font-weight:500;margin-top:2px;line-height:1.35}
+.acp-desc{font-size:12.5px;color:var(--ip-muted);margin-top:4px;line-height:1.5}
+.acp-note{font-size:12px;color:var(--ip-accent-2);margin-top:7px;background:rgba(116,176,216,.09);border:1px solid var(--glass-brd);border-radius:9px;padding:7px 10px}
+.acp-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+.acp-val{padding:9px 15px;border-radius:11px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--ip-accent);background:rgba(116,176,216,.10);color:var(--ip-text);transition:.18s;font-family:inherit}
+.acp-val:active{transform:scale(.97)}
+.acp-val.on{background:linear-gradient(135deg,var(--ip-ok),#3fae7a);border-color:var(--ip-ok);color:#04231a}
+.acp-obsbtn{padding:9px 13px;border-radius:11px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--glass-brd);background:transparent;color:var(--ip-muted);font-family:inherit}
+.acp-obs{width:100%;margin-top:9px;padding:10px 12px;border-radius:11px;background:rgba(255,255,255,.04);border:1px solid var(--glass-brd);color:var(--ip-text);font-size:13px;font-family:inherit;min-height:62px;resize:vertical}
+.acp-obs:focus{outline:none;border-color:var(--ip-accent)}
+.acp-foot{text-align:center;font-size:11px;color:var(--ip-faint);margin-top:18px}
+@media(max-width:600px){.acp{padding:22px 14px 70px}.acp-head h1{font-size:18px}}
 /* print */
 @media print{
   .ip-noprint{display:none!important}
@@ -582,22 +626,41 @@ function Execucao(p){
 /* ---------- Página pública de acompanhamento (link do André) ---------- */
 function AcompPublico(p){
   var st=useState(undefined), dados=st[0], setDados=st[1];
-  useEffect(function(){ sb.rpc("acomp_publico",{p_token:p.token}).then(function(r){ setDados(r.error?null:(r.data||null)); }).catch(function(){ setDados(null); }); },[p.token]);
+  var its=useState([]), itens=its[0], setItens=its[1];
+  var ob=useState(""), openObs=ob[0], setOpenObs=ob[1];
+  function carregar(){ sb.rpc("acomp_publico",{p_token:p.token}).then(function(r){ var d=r.error?null:(r.data||null); setDados(d); setItens((d&&d.itens)||[]); }).catch(function(){ setDados(null); }); }
+  useEffect(function(){ carregar(); },[p.token]);
   if(dados===undefined) return h("div",{className:"ip-auth"},h("span",{className:"spin"}));
-  if(!dados) return h("div",{className:"ip-auth"},h("div",{className:"ip-authbox"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null, h("h1",{style:{fontWeight:300}},"Link inválido"), h("p",{className:"ip-muted"},"Este link de acompanhamento não está mais ativo. Fale com a INPERSON.")));
-  var itens=dados.itens||[]; var pct=pctExec(itens);
-  return h("div",{className:"ip-rel",style:{maxWidth:"860px",margin:"0 auto",padding:"32px 18px 60px"}},
-    h("div",{style:{display:"flex",alignItems:"center",gap:"14px",marginBottom:"18px"}}, IP_ICON?h("img",{src:IP_ICON,alt:"iP",style:{width:"46px",height:"46px",borderRadius:"12px"}}):null,
-      h("div",null, h("div",{style:{fontSize:"22px",fontWeight:300}},dados.titulo), h("div",{className:"ip-muted",style:{fontSize:"13px"}},dados.cliente+" · acompanhamento em tempo real"))),
-    h("div",{className:"ip-card ip-pad",style:{marginBottom:"18px"}},
-      h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}, h("div",{className:"ip-sub"},"Progresso geral"), h("div",{className:"kpi-big",style:{color:pct===100?"var(--ip-ok)":"var(--ip-accent)"}},pct+"%")),
-      h("div",{className:"prog",style:{marginTop:"10px"}}, h("i",{style:{width:pct+"%"}}))),
-    agrupar(itens).map(function(grp){ var gp=pctExec(grp.itens); return h("div",{key:grp.grupo,style:{marginBottom:"14px"}},
-      h("div",{className:"sec-h"},grp.grupo,h("span",{className:"ip-pill",style:{marginLeft:"6px"}},gp+"%")),
-      h("div",{className:"ip-card",style:{overflow:"hidden"}}, grp.itens.map(function(it,i){ var si=stInfo(it.status); return h("div",{key:i,className:"exec-row"},
-        h("div",{style:{flex:1,minWidth:0}}, h("div",{style:{fontWeight:500}},it.item), it.descricao?h("div",{className:"ip-faint",style:{fontSize:"12px",marginTop:"2px"}},it.descricao):null, it.observacao?h("div",{style:{fontSize:"12px",marginTop:"6px",color:"var(--ip-accent-2)"}},"↳ "+it.observacao):null),
-        h("span",{className:cx("bdg",si.c)},si.l)); }))); }),
-    h("div",{className:"ip-faint",style:{textAlign:"center",fontSize:"11px",marginTop:"24px"}},"INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · (71) 99168-4231 · atualizado em tempo real")
+  if(!dados) return h("div",{className:"ip-auth"},h("div",{className:"ip-authbox"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null, h("h1",{style:{fontWeight:300}},"Link indisponível"), h("p",{className:"ip-muted"},"Este link não está mais ativo. Fale com a INPERSON.")));
+  var pct=pctExec(itens);
+  var stg=pct>=100?"Concluído":(pct>0?"Em andamento":"Aguardando início");
+  function validar(it,ok){ setItens(function(l){ return l.map(function(x){ return x.id===it.id?Object.assign({},x,{cliente_ok:ok}):x; }); });
+    sb.rpc("acomp_cliente_validar",{p_token:p.token,p_item:it.id,p_ok:ok,p_obs:it.cliente_obs||null}); }
+  function setObs(id,v){ setItens(function(l){ return l.map(function(x){ return x.id===id?Object.assign({},x,{cliente_obs:v}):x; }); }); }
+  function salvarObs(it){ sb.rpc("acomp_cliente_validar",{p_token:p.token,p_item:it.id,p_ok:it.cliente_ok||false,p_obs:it.cliente_obs||null}); }
+  function ncls(it){ if(it.cliente_ok) return "val"; if(it.status==="validado"||it.status==="concluido") return "done"; if(it.status==="andamento") return "run"; return "wait"; }
+  return h("div",{className:"acp"},
+    h("div",{className:"acp-head"},
+      IP_ICON?h("div",{className:"acp-logo"},h("img",{src:IP_ICON,alt:"iP"})):null,
+      h("div",{className:"acp-live"},h("span",{className:"d"}),"ACOMPANHAMENTO AO VIVO"),
+      h("h1",null,dados.titulo),
+      h("div",{className:"acp-sub"},dados.cliente+" · INPERSON Soluções em Tecnologia")),
+    h("div",{className:"acp-prog"},
+      h("div",{className:"acp-prog-top"}, h("span",null,stg), h("b",null,pct+"%")),
+      h("div",{className:"acp-bar"}, h("i",{style:{width:pct+"%"}}, h("span",{className:"sh"})))),
+    h("div",{className:"acp-tl"}, itens.map(function(it,i){ var nc=ncls(it); var last=(i===itens.length-1); var ico=(nc==="done"||nc==="val")?"✓":""; return h("div",{key:it.id,className:cx("acp-step",nc),style:{animationDelay:(i*0.05)+"s"}},
+      h("div",{className:"acp-rail"}, h("div",{className:cx("acp-node",nc)}, ico?h("span",null,ico):null), last?null:h("div",{className:"acp-line"})),
+      h("div",{className:"acp-body"},
+        h("div",{className:"acp-grp"},it.grupo),
+        h("div",{className:"acp-item"},it.item),
+        it.descricao?h("div",{className:"acp-desc"},it.descricao):null,
+        it.observacao?h("div",{className:"acp-note"},"INPERSON: "+it.observacao):null,
+        h("div",{className:"acp-actions"},
+          h("button",{className:cx("acp-val",it.cliente_ok?"on":""),onClick:function(){ validar(it,!it.cliente_ok); }}, it.cliente_ok?"✓ Validado por você":"Validar esta etapa"),
+          h("button",{className:"acp-obsbtn",onClick:function(){ setOpenObs(openObs===it.id?"":it.id); }}, (it.cliente_obs?"✎ ":"+ ")+"Observação")),
+        (openObs===it.id||it.cliente_obs)?h("textarea",{className:"acp-obs",placeholder:"Escreva uma observação para a INPERSON…",value:it.cliente_obs||"",onChange:function(e){setObs(it.id,e.target.value);},onBlur:function(){salvarObs(it);}}):null
+      )); })),
+    h("div",{className:"acp-foot"},"INPERSON Soluções em Tecnologia · (71) 99168-4231 · atualizado em tempo real")
   );
 }
 
