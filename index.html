@@ -376,7 +376,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"]];
+  var NAV=[["painel","◔","Painel"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -386,6 +386,7 @@ function App(){
   else if(view==="evidencias") body=h(FormPicker,ctx);
   else if(view==="historico") body=h(Historico,ctx);
   else if(view==="inventario") body=h(Inventario,ctx);
+  else if(view==="clientes") body=h(Clientes,ctx);
 
   return h(React.Fragment,null, h(Bgfx),
     h("div",{className:"ip-shell"},
@@ -419,6 +420,76 @@ function TopBar(p){
 }
 function docByCode(docs,code){ return docs.filter(function(d){return d.codigo===code;})[0]; }
 function findReg(regs,code,comp){ return regs.filter(function(r){return r.documento_codigo===code&&r.competencia===comp;})[0]; }
+
+/* ---------- Clientes (cadastro + clonagem do catálogo = revenda) ---------- */
+function Clientes(p){
+  function blank(){ return {nome:"",segmento:"",cidade:"",contato:"",obs:"",status:"ativo"}; }
+  var ed=useState(null), edit=ed[0], setEdit=ed[1];
+  var fst=useState(blank()), f=fst[0], setF=fst[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  var bs=useState(""), busy=bs[0], setBusy=bs[1];
+  function up(k,v){ var o={}; o[k]=v; setF(Object.assign({},f,o)); }
+  var docsPor={}, regsPor={};
+  p.data.docs.forEach(function(d){ if(d.cliente_id) docsPor[d.cliente_id]=(docsPor[d.cliente_id]||0)+1; });
+  p.data.regs.forEach(function(r){ if(r.cliente_id) regsPor[r.cliente_id]=(regsPor[r.cliente_id]||0)+1; });
+
+  function salvar(){
+    if(!f.nome){ p.flash("Nome é obrigatório.","err"); return; }
+    setSaving(true);
+    var payload={nome:f.nome.trim(),segmento:f.segmento,cidade:f.cidade,contato:f.contato,obs:f.obs,status:f.status};
+    var q=(edit&&edit.id)?sb.from("clientes").update(payload).eq("id",edit.id):sb.from("clientes").insert(payload).select();
+    q.then(function(r){ setSaving(false); if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; }
+      var novoId=(!edit||!edit.id)&&r.data&&r.data[0]&&r.data[0].id;
+      p.flash("Cliente salvo ✓"); setEdit(null);
+      if(novoId && window.confirm("Cliente criado. Clonar o catálogo ISO (25 documentos controlados) para este cliente agora?")){
+        clonar(novoId);
+      } else { p.reload(); }
+    }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+  }
+  function clonar(id){
+    setBusy(id);
+    sb.rpc("iso_clonar_catalogo",{p_destino:id}).then(function(r){
+      setBusy("");
+      if(r.error){ p.flash("Erro ao clonar: "+r.error.message,"err"); return; }
+      p.flash((r.data||0)+" documentos clonados ✓"); p.reload();
+    }).catch(function(e){ setBusy(""); p.flash("Erro: "+String(e),"err"); });
+  }
+  function ativar(c){ p.setClienteId(c.id); p.flash("Cliente ativo: "+c.nome); p.setView("painel"); }
+
+  return h("div",null,
+    h("div",{className:"ip-topbar ip-noprint"},
+      h("div",null, h("div",{className:"ip-h1"},"Clientes"), h("div",{className:"ip-sub"},p.data.clientes.length+" clientes · ISO como serviço recorrente")),
+      h("button",{className:"ip-btn",onClick:function(){ setEdit({}); setF(blank()); }},"+ Novo cliente")),
+    edit?h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
+      h("h3",{style:{fontSize:"16px",marginBottom:"12px"}},edit.id?"Editar cliente":"Novo cliente"),
+      h("div",{className:"grid k3"},
+        h(Field,{label:"Nome"}, h("input",{className:"ip-input",value:f.nome,onChange:function(e){up("nome",e.target.value);}})),
+        h(Field,{label:"Segmento"}, h("input",{className:"ip-input",placeholder:"Saúde / Odontologia",value:f.segmento,onChange:function(e){up("segmento",e.target.value);}})),
+        h(Field,{label:"Cidade"}, h("input",{className:"ip-input",value:f.cidade,onChange:function(e){up("cidade",e.target.value);}})),
+        h(Field,{label:"Contato"}, h("input",{className:"ip-input",placeholder:"nome / telefone",value:f.contato,onChange:function(e){up("contato",e.target.value);}})),
+        h(Field,{label:"Status"}, h("select",{className:"ip-sel",value:f.status,onChange:function(e){up("status",e.target.value);}}, ["ativo","prospecto","inativo"].map(function(s){return h("option",{key:s,value:s},s);})))),
+      h(Field,{label:"Observações"}, h("input",{className:"ip-input",value:f.obs,onChange:function(e){up("obs",e.target.value);}})),
+      h("div",{style:{display:"flex",gap:"10px"}},
+        h("button",{className:"ip-btn",disabled:saving||!f.nome,onClick:salvar}, saving?"Salvando…":"Salvar"),
+        h("button",{className:"ip-btn ghost",onClick:function(){ setEdit(null); }},"Cancelar"))
+    ):null,
+    h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
+      h("thead",null,h("tr",null,h("th",null,"Cliente"),h("th",null,"Segmento"),h("th",null,"Cidade"),h("th",null,"Docs ISO"),h("th",null,"Evidências"),h("th",{className:"col-acoes"},"Ações"))),
+      h("tbody",null, p.data.clientes.map(function(c){ var nd=docsPor[c.id]||0; return h("tr",{key:c.id,style:c.id===p.clienteId?{background:"rgba(116,176,216,.06)"}:null},
+        h("td",null,h("b",null,c.nome),c.id===p.clienteId?h("span",{className:"bdg ok",style:{marginLeft:"8px"}},"ativo"):null),
+        h("td",{className:"ip-muted"},c.segmento||"—"),
+        h("td",{className:"ip-muted"},c.cidade||"—"),
+        h("td",null, nd?h("span",{className:"ip-pill"},nd):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—")),
+        h("td",{className:"ip-muted"},regsPor[c.id]||0),
+        h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
+          h("button",{className:"ip-btn ghost sm act",onClick:function(){ setEdit(c); setF(Object.assign(blank(),{nome:c.nome,segmento:c.segmento||"",cidade:c.cidade||"",contato:c.contato||"",obs:c.obs||"",status:c.status||"ativo"})); }},"Editar"),
+          nd?h("button",{className:"ip-btn sm act",onClick:function(){ ativar(c); }},"Abrir")
+            :h("button",{className:"ip-btn sm act",disabled:busy===c.id,onClick:function(){ if(window.confirm("Clonar o catálogo ISO (25 documentos) para "+c.nome+"?")) clonar(c.id); }}, busy===c.id?"Clonando…":"Clonar ISO")))
+      ); }))
+    )),
+    h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"12px"}},"\"Clonar ISO\" copia o catálogo de documentos controlados do cliente-modelo (Avanço) para um cliente novo — é o que transforma a consultoria ISO em serviço recorrente para outras empresas.")
+  );
+}
 
 /* ---------- Painel de conformidade ---------- */
 function Painel(p){
