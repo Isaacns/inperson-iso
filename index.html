@@ -391,7 +391,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
+  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -401,6 +401,7 @@ function App(){
   else if(view==="documentos") body=h(Documentos,ctx);
   else if(view==="evidencias") body=h(FormPicker,ctx);
   else if(view==="relatorio") body=h(RelatorioMensal,ctx);
+  else if(view==="matriz") body=h(MatrizEvidencias,ctx);
   else if(view==="historico") body=h(Historico,ctx);
   else if(view==="inventario") body=h(Inventario,ctx);
   else if(view==="anexos") body=h(Anexos,ctx);
@@ -597,6 +598,68 @@ function AcompPublico(p){
         h("div",{style:{flex:1,minWidth:0}}, h("div",{style:{fontWeight:500}},it.item), it.descricao?h("div",{className:"ip-faint",style:{fontSize:"12px",marginTop:"2px"}},it.descricao):null, it.observacao?h("div",{style:{fontSize:"12px",marginTop:"6px",color:"var(--ip-accent-2)"}},"↳ "+it.observacao):null),
         h("span",{className:cx("bdg",si.c)},si.l)); }))); }),
     h("div",{className:"ip-faint",style:{textAlign:"center",fontSize:"11px",marginTop:"24px"}},"INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · (71) 99168-4231 · atualizado em tempo real")
+  );
+}
+
+/* ---------- Matriz de Evidências (requisito ISO → evidência → status) ---------- */
+var MATRIZ_REQ=[
+  {req:"4.4 / 7.5 — Informação documentada",ev:"Política e Manual do SGQ",docs:["POL-INF-001","MAN-INF-001"]},
+  {req:"7.1.3 — Infraestrutura",ev:"Inventário de ativos + documentação de rede",docs:["INV-ATI-001","DOC-IP-001","DOC-TOP-001"]},
+  {req:"7.1.3 — Manutenção da infraestrutura",ev:"Checklist de manutenção mensal",docs:["FOR-MAN-001"]},
+  {req:"7.5 — Controle de acesso e segurança física",ev:"Segurança física + acesso ao rack",docs:["FOR-SEG-001","FOR-ACE-001"]},
+  {req:"8.4 — Controle de fornecedor externo",ev:"Declaração de conformidade + POPs",docs:["DEC-CONF-001","POP-RED-001"]},
+  {req:"8.5.1 — Controle da operação",ev:"POPs e Instruções de Trabalho",docs:["POP-RED-001","IT-RED-001"]},
+  {req:"9.1 — Monitoramento e medição",ev:"KPIs mensais",docs:["FOR-KPI-001"]},
+  {req:"9.2 — Auditoria interna",ev:"Checklist de auditoria interna",docs:["FOR-AUD-001"]},
+  {req:"10.2 — Não conformidade e ação corretiva",ev:"Registros de NC (RNC)",docs:["FOR-INC-001"]}
+];
+function MatrizEvidencias(p){
+  function avaliar(codes){
+    var existe=0, comEvid=0, total=codes.length, forms=0;
+    codes.forEach(function(code){
+      var d=docByCode(p.docsC,code);
+      if(d){ existe++;
+        if(FORMS[code]||(d.modelo&&d.modelo.kind)){ forms++;
+          var tem=p.regsC.some(function(r){ return r.documento_codigo===code && (r.status==="concluido"||r.status==="aprovado"); });
+          if(tem) comEvid++;
+        } else { if(d.status==="vigente" && (d.conteudo||d.tipo==="inventario")) comEvid++; }
+      }
+    });
+    if(existe<total) return {cls:"res-nc",txt:"Pendente"};
+    if(comEvid>=total) return {cls:"res-ok",txt:"Conforme"};
+    if(comEvid>0) return {cls:"res-pa",txt:"Parcial"};
+    return {cls:"res-nc",txt:"Sem evidência"};
+  }
+  var linhas=MATRIZ_REQ.map(function(m){ return Object.assign({},m,{st:avaliar(m.docs)}); });
+  var conf=linhas.filter(function(l){return l.st.txt==="Conforme";}).length;
+  var pct=Math.round(conf/linhas.length*100);
+  return h("div",null,
+    h("div",{className:"ip-topbar ip-noprint"},
+      h("div",null,h("div",{className:"ip-h1"},"Matriz de Evidências"),h("div",{className:"ip-sub"},"Requisito da norma → evidência comprobatória · "+p.clienteNome)),
+      h("button",{className:"ip-btn",onClick:function(){ window.print(); }},"⎙ Imprimir / Salvar PDF")),
+    h("div",{className:"doc-ctrl"},
+      h("div",{className:"dc-head"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null,
+        h("div",{className:"t"}, h("b",null,EMP.nome||"INPERSON Soluções em Tecnologia"), h("span",null,"Sistema de Gestão da Qualidade · ISO 9001:2015")),
+        h("span",{className:"dc-tag"},"Documento controlado")),
+      h("div",{className:"dc-meta"},
+        h("div",null,h("b",null,"Documento"),"MAT-EVI-001"),
+        h("div",null,h("b",null,"Cliente"),p.clienteNome),
+        h("div",null,h("b",null,"Prontidão"),pct+"%"),
+        h("div",null,h("b",null,"Emissão"),brDate(todayISO()))),
+      h("div",{className:"dc-body"},
+        h("h2",{className:"dc-title"},"Matriz de Evidências — Auditoria ISO 9001:2015"),
+        h("div",{style:{fontSize:"12px",color:"#5b6b80",marginBottom:"10px"}},"Liga cada requisito da norma à evidência que comprova o cumprimento — o que o auditor solicita."),
+        h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"32%"}},"Requisito ISO 9001"),h("th",null,"Evidência"),h("th",null,"Onde"),h("th",null,"Status"))),
+          h("tbody",null,linhas.map(function(l,i){ return h("tr",{key:i},
+            h("td",null,l.req),
+            h("td",null,l.ev),
+            h("td",{style:{fontFamily:"monospace",fontSize:"11px"}},l.docs.join(", ")),
+            h("td",null,h("span",{className:l.st.cls},l.st.txt))); }))),
+        h("div",{className:"dc-sign"},
+          h("div",{className:"s"},(EMP.elaborador||"Isaac Nogueira / INPERSON"),h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Elaborado por (INPERSON)")),
+          h("div",{className:"s"}," ",h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Auditor / Responsável"))) ),
+      h("div",{className:"dc-foot"},(EMP.nome||"INPERSON")+" · CNPJ "+(EMP.cnpj||"")+" · "+(EMP.contato||"")+" · "+(CFG.APP_URL||""))
+    )
   );
 }
 
