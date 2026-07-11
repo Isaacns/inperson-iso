@@ -189,6 +189,22 @@ h1,h2,h3{font-weight:300;margin:0}
 /* logo do CLIENTE (chip branco, para marca sobre fundo escuro) */
 .acp-clilogo{display:inline-flex;align-items:center;background:#fff;border-radius:12px;padding:7px 14px;box-shadow:0 8px 22px rgba(0,0,0,.4);margin-bottom:10px;animation:ip-fadeup .5s ease}
 .acp-clilogo img{height:40px;width:auto;max-width:150px;display:block}
+.acp-rels{max-width:620px;margin:22px auto 0;background:var(--glass-bg,rgba(255,255,255,.03));border:1px solid var(--glass-brd);border-radius:16px;padding:14px 16px}
+.acp-rels-h{font-size:13px;font-weight:600;letter-spacing:.3px;margin-bottom:10px}
+.acp-relrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.06)}
+.acp-relrow:first-of-type{border-top:none}
+.acp-relrow b{font-size:13.5px} .acp-relsub{font-size:11px;color:var(--ip-muted);margin-top:2px}
+.acp-relmodal{position:fixed;inset:0;z-index:80;background:rgba(2,6,14,.78);backdrop-filter:blur(5px);overflow:auto;padding:24px;display:flex;justify-content:center;align-items:flex-start}
+.acp-reldoc{background:#fff;color:#132435;width:100%;max-width:640px;border-radius:14px;padding:26px 28px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.acp-reltop{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px}
+.acp-reldoc h2{font-size:18px;font-weight:600;margin:0 0 4px;color:#0d2440}
+.acp-reldoc h3{font-size:13px;color:#0d2440;margin:16px 0 5px}
+.acp-relmeta{font-size:11.5px;color:#5b6b80;margin-bottom:12px}
+.acp-reltbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.acp-reltbl td{padding:7px 9px;border:1px solid #e2e9f0} .acp-reltbl td:last-child{text-align:right;font-weight:600;white-space:nowrap}
+.acp-reldec{font-size:12px;line-height:1.7;color:#1d3349;margin:4px 0 0}
+.acp-relsign{margin-top:20px;padding-top:10px;border-top:1px solid #e2e9f0;font-size:12px;color:#37506b}
+@media print{ .acp-relmodal{position:static;background:#fff;padding:0} .acp-reldoc{box-shadow:none;max-width:none} .acp-tl,.acp-rels,.acp-head,.acp-prog,.acp-foot{display:none!important} }
 /* etapa em andamento usa a cor secundária do cliente (ex.: laranja da Avanço) */
 .acp-node.run{border-color:var(--ip-accent-2);color:var(--ip-accent-2)}
 .acp-node.run::after{border-color:var(--ip-accent-2)}
@@ -517,7 +533,7 @@ function App(){
   var ss=useState(undefined), sess=ss[0], setSess=ss[1];
   var ps=useState(null), perfil=ps[0], setPerfil=ps[1];
   var vs=useState("painel"), view=vs[0], setView=vs[1];
-  var ds=useState({clientes:[],docs:[],regs:[],ativos:[],acomp:[],share:[],chamados:[]}), data=ds[0], setData=ds[1];
+  var ds=useState({clientes:[],docs:[],regs:[],ativos:[],acomp:[],share:[],chamados:[],relatorios:[]}), data=ds[0], setData=ds[1];
   var cs=useState(""), clienteId=cs[0], setClienteId=cs[1];
   var ls=useState(true), loading=ls[0], setLoading=ls[1];
   var ts=useState(null), toast=ts[0], setToast=ts[1];
@@ -551,11 +567,12 @@ function App(){
       sb.from("iso_ativos").select("*").order("ordem"),
       sb.from("acomp_itens").select("*").order("ordem"),
       sb.from("acomp_share").select("*"),
-      sb.from("iso_chamados").select("*").order("aberto_em",{ascending:false})
+      sb.from("iso_chamados").select("*").order("aberto_em",{ascending:false}),
+      sb.from("iso_relatorios").select("*").order("competencia",{ascending:false})
     ]).then(function(r){
-      var clientes=(r[0].data||[]), docs=(r[1].data||[]), regs=(r[2].data||[]), ativos=(r[3].data||[]), acomp=(r[4].data||[]), share=(r[5].data||[]), chamados=(r[6].data||[]);
+      var clientes=(r[0].data||[]), docs=(r[1].data||[]), regs=(r[2].data||[]), ativos=(r[3].data||[]), acomp=(r[4].data||[]), share=(r[5].data||[]), chamados=(r[6].data||[]), relatorios=(r[7].data||[]);
       DOCMODELOS={}; docs.forEach(function(d){ if(d.modelo && d.modelo.kind) DOCMODELOS[d.codigo]=d.modelo; });
-      setData({clientes:clientes,docs:docs,regs:regs,ativos:ativos,acomp:acomp,share:share,chamados:chamados});
+      setData({clientes:clientes,docs:docs,regs:regs,ativos:ativos,acomp:acomp,share:share,chamados:chamados,relatorios:relatorios});
       setClienteId(function(prev){ if(prev) return prev;
         var av=clientes.filter(function(c){ return /avan/i.test(c.nome); })[0];
         return av?av.id:(clientes[0]?clientes[0].id:"");
@@ -590,8 +607,9 @@ function App(){
   var acompC=data.acomp.filter(function(a){ return a.cliente_id===clienteId; });
   var shareC=data.share.filter(function(s){ return s.cliente_id===clienteId; })[0]||null;
   var chamadosC=(data.chamados||[]).filter(function(c){ return c.cliente_id===clienteId; });
+  var relatoriosC=(data.relatorios||[]).filter(function(c){ return c.cliente_id===clienteId; });
 
-  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
+  var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, relatoriosC:relatoriosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
   var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
@@ -800,7 +818,10 @@ function AcompPublico(p){
   var st=useState(undefined), dados=st[0], setDados=st[1];
   var its=useState([]), itens=its[0], setItens=its[1];
   var ob=useState(""), openObs=ob[0], setOpenObs=ob[1];
-  function carregar(){ sb.rpc("acomp_publico",{p_token:p.token}).then(function(r){ var d=r.error?null:(r.data||null); setDados(d); setItens((d&&d.itens)||[]); try{ document.title="Acompanhamento de Execução de Serviço"+(d&&d.cliente?(" · "+d.cliente):""); }catch(e){} }).catch(function(){ setDados(null); }); }
+  var rl=useState([]), rels=rl[0], setRels=rl[1];
+  var vr=useState(null), verRel=vr[0], setVerRel=vr[1];
+  function carregar(){ sb.rpc("acomp_publico",{p_token:p.token}).then(function(r){ var d=r.error?null:(r.data||null); setDados(d); setItens((d&&d.itens)||[]); try{ document.title="Acompanhamento de Execução de Serviço"+(d&&d.cliente?(" · "+d.cliente):""); }catch(e){} }).catch(function(){ setDados(null); });
+    sb.rpc("acomp_relatorios",{p_token:p.token}).then(function(r){ setRels((r&&!r.error&&r.data)||[]); }).catch(function(){ setRels([]); }); }
   useEffect(function(){ carregar(); },[p.token]);
   if(dados===undefined) return h("div",{className:"ip-auth"},h("span",{className:"spin"}));
   if(!dados) return h("div",{className:"ip-auth"},h("div",{className:"ip-authbox"}, h("img",{src:IP_MARK,alt:"iP"}), h("h1",{style:{fontWeight:300}},"Link indisponível"), h("p",{className:"ip-muted"},"Este link não está mais ativo. Fale com a INPERSON.")));
@@ -834,6 +855,28 @@ function AcompPublico(p){
           h("button",{className:"acp-obsbtn",onClick:function(){ setOpenObs(openObs===it.id?"":it.id); }}, (it.cliente_obs?"✎ ":"+ ")+"Observação")),
         (openObs===it.id||it.cliente_obs)?h("textarea",{className:"acp-obs",placeholder:"Escreva uma observação para a INPERSON…",value:it.cliente_obs||"",onChange:function(e){setObs(it.id,e.target.value);},onBlur:function(){salvarObs(it);}}):null
       )); })),
+    rels.length?h("div",{className:"acp-rels"},
+      h("div",{className:"acp-rels-h"},"📄 Relatórios de Conformidade"),
+      rels.map(function(rr){ return h("div",{key:rr.id,className:"acp-relrow"},
+        h("div",null, h("b",null,"Relatório "+(rr.competencia?ymLabel(rr.competencia):"")), h("div",{className:"acp-relsub"},(rr.numero||"")+" · emitido em "+brDate(rr.emitido_em))),
+        h("button",{className:"acp-val",onClick:function(){ setVerRel(rr); }},"Ver relatório")); })
+    ):null,
+    verRel?h("div",{className:"acp-relmodal",onClick:function(e){ if(e.target===e.currentTarget) setVerRel(null); }},
+      (function(){ var d=verRel.dados||{}; return h("div",{className:"acp-reldoc"},
+        h("div",{className:"acp-reltop ip-noprint"}, h("button",{className:"acp-obsbtn",onClick:function(){ window.print(); }},"⎙ Imprimir / PDF"), h("button",{className:"acp-obsbtn",onClick:function(){ setVerRel(null); }},"✕ Fechar")),
+        h("h2",null,"Relatório de Conformidade — "+(d.competencia?ymLabel(d.competencia):"")),
+        h("div",{className:"acp-relmeta"},(verRel.numero||"")+" · "+(d.cliente||dados.cliente)+" · Emissão "+(d.emissao||brDate(verRel.emitido_em))+" · por INPERSON Soluções em Tecnologia"),
+        h("table",{className:"acp-reltbl"}, h("tbody",null,
+          h("tr",null,h("td",null,"Conformidade das evidências"),h("td",null,(d.confPct!=null?d.confPct+"% ("+d.done+"/"+d.total+")":"—"))),
+          h("tr",null,h("td",null,"Execução do serviço contratado"),h("td",null,(d.execPct!=null?d.execPct+"%":"—"))),
+          h("tr",null,h("td",null,"Chamados no período"),h("td",null,(d.chamados?(d.chamados.total+" registrados · "+d.chamados.resolvidos+" resolvidos"):"—"))),
+          h("tr",null,h("td",null,"Não conformidades"),h("td",null,String(d.ncs!=null?d.ncs:"—"))))),
+        (d.kpis&&d.kpis.length)?h("div",null,h("h3",null,"Indicadores do mês"),h("table",{className:"acp-reltbl"},h("tbody",null,d.kpis.map(function(k,i){ return h("tr",{key:i},h("td",null,k.l),h("td",null,k.v)); })))):null,
+        (d.evidencias&&d.evidencias.length)?h("div",null,h("h3",null,"Evidências do período"),h("table",{className:"acp-reltbl"},h("tbody",null,d.evidencias.map(function(ev,i){ return h("tr",{key:i},h("td",null,ev.titulo+" ("+ev.codigo+")"),h("td",null,ev.status+(ev.concluido_em&&ev.concluido_em!=="—"?(" · "+ev.concluido_em):""))); })))):null,
+        d.declaracao?h("div",null,h("h3",null,"Declaração"),h("p",{className:"acp-reldec"},d.declaracao)):null,
+        h("div",{className:"acp-relsign"},(d.elaborador||"INPERSON")+" — Elaborado por (INPERSON)")
+      ); })()
+    ):null,
     h("div",{className:"acp-foot"},"INPERSON Soluções em Tecnologia · (71) 99168-4231 · atualizado em tempo real")
   );
 }
@@ -984,6 +1027,7 @@ function Anexos(p){
 /* ---------- Relatório de Conformidade mensal (consolidado, 1 clique) ---------- */
 function RelatorioMensal(p){
   var cm=useState(nowYM()), comp=cm[0], setComp=cm[1];
+  var sv=useState(false), saving=sv[0], setSaving=sv[1];
   var opts=lastYMs(12);
   function reg(code){ return findReg(p.regsC,code,comp); }
   var man=reg("FOR-MAN-001"),seg=reg("FOR-SEG-001"),kpi=reg("FOR-KPI-001"),ace=reg("FOR-ACE-001");
@@ -999,13 +1043,40 @@ function RelatorioMensal(p){
   var chMes=(p.chamadosC||[]).filter(function(c){ return String((c.aberto_em||"")).slice(0,7)===comp; });
   var chResolv=chMes.filter(function(c){ return c.status==="resolvido"||c.status==="fechado"; });
   var emissao=brDate(todayISO());
+  var emitido=(p.relatoriosC||[]).filter(function(r){ return r.competencia===comp; })[0];
+
+  function snapshot(){ return {
+    competencia:comp, cliente:p.clienteNome, emissao:emissao,
+    confPct:confPct, done:done, total:mensais.length, execPct:execPctV,
+    chamados:{total:chMes.length, resolvidos:chResolv.length}, ncs:ncs.length,
+    kpis:kpiDef.campos.map(function(c){ return {l:c.l, v:(kpiVals[c.k]!=null&&kpiVals[c.k]!=="")?(kpiVals[c.k]+(c.suf?" "+c.suf:"")):"—"}; }),
+    evidencias:mensais.map(function(m){ var r=m[2]; return {codigo:m[0], titulo:m[1], status:r?statusInfo(r.status).txt:"Pendente", feito:feito(r), concluido_em:(r&&r.concluido_em)?brDate(r.concluido_em):"—"}; }),
+    declaracao:((dec.modelo&&dec.modelo.textoPadrao)?dec.modelo.textoPadrao.replace(/período de referência/gi,"período de "+ymLabel(comp)):"A INPERSON declara que a infraestrutura tecnológica da "+p.clienteNome+" foi mantida e monitorada, em conformidade com os requisitos aplicáveis do SGQ, no período de "+ymLabel(comp)+", conforme as evidências deste relatório."),
+    elaborador:((p.perfil&&p.perfil.nome)||EMP.elaborador||"Isaac Nogueira / INPERSON")
+  }; }
+  function emitir(){ setSaving(true);
+    var payload={cliente_id:p.clienteId,competencia:comp,numero:"REL-CONF-"+comp,dados:snapshot(),publicado:true,emitido_por:((p.perfil&&p.perfil.nome)||"INPERSON")};
+    sb.from("iso_relatorios").upsert(payload,{onConflict:"cliente_id,competencia"}).then(function(r){ setSaving(false); if(r.error){p.flash("Erro ao emitir: "+r.error.message,"err");return;} p.flash("Relatório emitido e publicado ao cliente ✓"); p.reload&&p.reload(); }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
+  }
+  function enviarCliente(){
+    var tok=p.shareC&&p.shareC.token;
+    if(!tok){ p.flash("Gere o link do cliente antes (aba Execução).","err"); return; }
+    var url="https://iso.inpersonaltec.com.br/?acompanhar="+tok;
+    var msg="Olá! O Relatório de Conformidade da infraestrutura ("+ymLabel(comp)+") da "+p.clienteNome+" está disponível. Acompanhe e veja o relatório aqui: "+url+"\\n\\n— INPERSON Soluções em Tecnologia";
+    window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank","noopener");
+  }
 
   return h("div",null,
     h("div",{className:"ip-topbar ip-noprint"},
-      h("div",null,h("div",{className:"ip-h1"},"Relatório de Conformidade"),h("div",{className:"ip-sub"},"Consolidado mensal · "+p.clienteNome)),
-      h("div",{style:{display:"flex",gap:"10px",alignItems:"center"}},
+      h("div",null,h("div",{className:"ip-h1"},"Relatório de Conformidade"),h("div",{className:"ip-sub"},"Consolidado mensal · "+p.clienteNome+(emitido?(" · emitido "+brDate(emitido.emitido_em)):" · não emitido"))),
+      h("div",{style:{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap"}},
         h("select",{className:"ip-sel",style:{width:"auto"},value:comp,onChange:function(e){setComp(e.target.value);}}, opts.map(function(o){return h("option",{key:o,value:o},ymLabel(o));})),
-        h("button",{className:"ip-btn",onClick:function(){ window.print(); }},"⎙ Imprimir / Salvar PDF"))),
+        h("button",{className:"ip-btn ghost",onClick:function(){ window.print(); }},"⎙ PDF"),
+        h("button",{className:"ip-btn",disabled:saving,onClick:emitir}, saving?"Emitindo…":(emitido?"↻ Reemitir & publicar":"✓ Emitir & publicar ao cliente")),
+        h("button",{className:"ip-btn ghost",onClick:enviarCliente,title:"Abrir WhatsApp com o link do cliente"},"➤ Enviar ao cliente"))),
+    emitido?h("div",{className:"ip-card ip-pad ip-noprint",style:{marginBottom:"14px",borderColor:"var(--ip-ok,#3fb950)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}},
+      h("div",null,h("b",null,"✓ Publicado na área do cliente"),h("div",{className:"ip-faint",style:{fontSize:"12px"}},(emitido.numero||"")+" · emitido em "+brDate(emitido.emitido_em)+" · o André vê este relatório no link de acompanhamento")),
+      h("span",{className:"ip-pill"},"visível ao cliente")):null,
     h("div",{className:"doc-ctrl"},
       h("div",{className:"dc-head"}, h("img",{src:IP_MARK,alt:"iP"}),
         h("div",{className:"t"}, h("b",null,EMP.nome||"INPERSON Soluções em Tecnologia"), h("span",null,"Sistema de Gestão da Qualidade · ISO 9001:2015")),
