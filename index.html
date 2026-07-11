@@ -391,7 +391,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["clientes","🏢","Clientes"]];
+  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -400,6 +400,7 @@ function App(){
   else if(view==="execucao") body=h(Execucao,ctx);
   else if(view==="documentos") body=h(Documentos,ctx);
   else if(view==="evidencias") body=h(FormPicker,ctx);
+  else if(view==="relatorio") body=h(RelatorioMensal,ctx);
   else if(view==="historico") body=h(Historico,ctx);
   else if(view==="inventario") body=h(Inventario,ctx);
   else if(view==="clientes") body=h(Clientes,ctx);
@@ -595,6 +596,76 @@ function AcompPublico(p){
         h("div",{style:{flex:1,minWidth:0}}, h("div",{style:{fontWeight:500}},it.item), it.descricao?h("div",{className:"ip-faint",style:{fontSize:"12px",marginTop:"2px"}},it.descricao):null, it.observacao?h("div",{style:{fontSize:"12px",marginTop:"6px",color:"var(--ip-accent-2)"}},"↳ "+it.observacao):null),
         h("span",{className:cx("bdg",si.c)},si.l)); }))); }),
     h("div",{className:"ip-faint",style:{textAlign:"center",fontSize:"11px",marginTop:"24px"}},"INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · (71) 99168-4231 · atualizado em tempo real")
+  );
+}
+
+/* ---------- Relatório de Conformidade mensal (consolidado, 1 clique) ---------- */
+function RelatorioMensal(p){
+  var cm=useState(nowYM()), comp=cm[0], setComp=cm[1];
+  var opts=lastYMs(12);
+  function reg(code){ return findReg(p.regsC,code,comp); }
+  var man=reg("FOR-MAN-001"),seg=reg("FOR-SEG-001"),kpi=reg("FOR-KPI-001"),ace=reg("FOR-ACE-001");
+  var mensais=[["FOR-MAN-001","Checklist de Manutenção Mensal",man],["FOR-SEG-001","Checklist de Segurança Física",seg],["FOR-KPI-001","Dashboard de KPIs Mensais",kpi],["FOR-ACE-001","Registro de Acesso ao Rack",ace]];
+  function feito(r){ return r&&(r.status==="concluido"||r.status==="aprovado"); }
+  var done=mensais.filter(function(m){return feito(m[2]);}).length;
+  var confPct=Math.round(done/mensais.length*100);
+  var kpiDef=defDe("FOR-KPI-001")||{campos:[]};
+  var kpiVals=(kpi&&kpi.dados&&kpi.dados.valores)||{};
+  var ncs=p.regsC.filter(function(r){ return r.documento_codigo==="FOR-INC-001" && String(r.competencia||"").slice(0,7)===comp; });
+  var dec=docByCode(p.docsC,"DEC-CONF-001")||{};
+  var execPctV=pctExec(p.acompC||[]);
+  var emissao=brDate(todayISO());
+
+  return h("div",null,
+    h("div",{className:"ip-topbar ip-noprint"},
+      h("div",null,h("div",{className:"ip-h1"},"Relatório de Conformidade"),h("div",{className:"ip-sub"},"Consolidado mensal · "+p.clienteNome)),
+      h("div",{style:{display:"flex",gap:"10px",alignItems:"center"}},
+        h("select",{className:"ip-sel",style:{width:"auto"},value:comp,onChange:function(e){setComp(e.target.value);}}, opts.map(function(o){return h("option",{key:o,value:o},ymLabel(o));})),
+        h("button",{className:"ip-btn",onClick:function(){ window.print(); }},"⎙ Imprimir / Salvar PDF"))),
+    h("div",{className:"doc-ctrl"},
+      h("div",{className:"dc-head"}, IP_ICON?h("img",{src:IP_ICON,alt:"iP"}):null,
+        h("div",{className:"t"}, h("b",null,EMP.nome||"INPERSON Soluções em Tecnologia"), h("span",null,"Sistema de Gestão da Qualidade · ISO 9001:2015")),
+        h("span",{className:"dc-tag"},"Relatório mensal")),
+      h("div",{className:"dc-meta"},
+        h("div",null,h("b",null,"Documento"),"REL-CONF-001"),
+        h("div",null,h("b",null,"Competência"),ymLabel(comp)),
+        h("div",null,h("b",null,"Cliente"),p.clienteNome),
+        h("div",null,h("b",null,"Emissão"),emissao)),
+      h("div",{className:"dc-body"},
+        h("h2",{className:"dc-title"},"Relatório de Conformidade da Infraestrutura — "+ymLabel(comp)),
+        h("div",{style:{fontSize:"12px",color:"#5b6b80",marginBottom:"12px"}},"Fornecedor externo qualificado (ISO 9001:2015, cláusula 8.4) · Elaborado por "+(EMP.elaborador||"Isaac Nogueira / INPERSON")),
+
+        h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"60%"}},"Indicador do período"),h("th",null,"Resultado"))),
+          h("tbody",null,
+            h("tr",null,h("td",null,"Conformidade das evidências mensais"),h("td",null,h("span",{className:confPct===100?"res-ok":"res-pa"},confPct+"% ("+done+"/"+mensais.length+")"))),
+            h("tr",null,h("td",null,"Execução do serviço contratado"),h("td",null,execPctV+"%")),
+            h("tr",null,h("td",null,"Não conformidades registradas no mês"),h("td",null,h("span",{className:ncs.length?"res-nc":"res-ok"},String(ncs.length)))))),
+
+        (kpi?h("div",null,
+          h("h3",{style:{fontSize:"13px",color:"#0d2440",margin:"16px 0 4px"}},"Indicadores (KPIs) do mês"),
+          h("table",null,h("thead",null,h("tr",null,h("th",{style:{width:"60%"}},"Indicador"),h("th",null,"Valor"))),
+            h("tbody",null,kpiDef.campos.map(function(c){ var v=kpiVals[c.k]; return h("tr",{key:c.k},h("td",null,c.l),h("td",null,(v!=null&&v!=="")?(v+(c.suf?" "+c.suf:"")):"—")); })))
+        ):h("div",{style:{fontSize:"12px",color:"#a06",margin:"12px 0"}},"KPIs do mês ainda não preenchidos (FOR-KPI-001).")),
+
+        h("h3",{style:{fontSize:"13px",color:"#0d2440",margin:"16px 0 4px"}},"Evidências do período"),
+        h("table",null,h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Código"),h("th",null,"Status"),h("th",null,"Concluído em"))),
+          h("tbody",null,mensais.map(function(m){ var r=m[2]; return h("tr",{key:m[0]},h("td",null,m[1]),h("td",null,m[0]),h("td",null,h("span",{className:feito(r)?"res-ok":"res-nc"},r?statusInfo(r.status).txt:"Pendente")),h("td",null,(r&&r.concluido_em)?brDate(r.concluido_em):"—")); }))),
+
+        ncs.length?h("div",null,
+          h("h3",{style:{fontSize:"13px",color:"#0d2440",margin:"16px 0 4px"}},"Não conformidades do período"),
+          h("table",null,h("thead",null,h("tr",null,h("th",null,"Nº"),h("th",null,"Descrição"),h("th",null,"Status"),h("th",null,"Ação corretiva"))),
+            h("tbody",null,ncs.map(function(r){ var d=r.dados||{}; return h("tr",{key:r.id},h("td",null,r.numero||"—"),h("td",null,d.descricao||"—"),h("td",null,d.status_nc||statusInfo(r.status).txt),h("td",null,d.acao_corretiva||"—")); })))
+        ):null,
+
+        h("h3",{style:{fontSize:"13px",color:"#0d2440",margin:"16px 0 4px"}},"Declaração"),
+        h("div",{style:{fontSize:"12px",lineHeight:"1.7",color:"#1d3349"}}, (dec.modelo&&dec.modelo.textoPadrao)?dec.modelo.textoPadrao.replace(/período de referência/gi,"período de "+ymLabel(comp)) : "A INPERSON declara que a infraestrutura tecnológica da "+p.clienteNome+" foi mantida e monitorada, em conformidade com os requisitos aplicáveis do SGQ, no período de "+ymLabel(comp)+", conforme as evidências deste relatório."),
+
+        h("div",{className:"dc-sign"},
+          h("div",{className:"s"},(EMP.elaborador||"Isaac Nogueira / INPERSON"),h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Elaborado por (INPERSON)")),
+          h("div",{className:"s"}," ",h("div",{style:{color:"#90a0b5",marginTop:"2px"}},"Ciente (Cliente)")))
+      ),
+      h("div",{className:"dc-foot"},(EMP.nome||"INPERSON")+" · CNPJ "+(EMP.cnpj||"")+" · "+(EMP.contato||"")+" · "+(CFG.APP_URL||""))
+    )
   );
 }
 
