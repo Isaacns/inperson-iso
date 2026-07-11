@@ -804,6 +804,8 @@ function MatrizEvidencias(p){
 function Anexos(p){
   var ls=useState(null), lista=ls[0], setLista=ls[1];
   var up=useState(false), uploading=up[0], setUploading=up[1];
+  var pg=useState(""), prog=pg[0], setProg=pg[1];
+  var tb=useState("img"), tab=tb[0], setTab=tb[1];
   function carregar(){
     sb.from("iso_anexos").select("*").eq("cliente_id",p.clienteId).order("criado_em",{ascending:false}).then(function(r){
       var rows=r.data||[];
@@ -811,29 +813,67 @@ function Anexos(p){
     });
   }
   useEffect(function(){ setLista(null); if(p.clienteId) carregar(); },[p.clienteId]);
+  function compress(f){ return new Promise(function(res){
+    if(!/^image\//.test(f.type||"")||/heic|heif|svg/i.test(f.type||"")){ res(f); return; }
+    try{ var u=URL.createObjectURL(f); var im=new Image();
+      im.onload=function(){ try{URL.revokeObjectURL(u);}catch(e){} var mx=1600, w=im.width, hh=im.height, sc=Math.min(1,mx/Math.max(w,hh));
+        if(sc>=1&&f.size<700000){ res(f); return; }
+        var cw=Math.max(1,Math.round(w*sc)), ch=Math.max(1,Math.round(hh*sc)), cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+        cv.getContext("2d").drawImage(im,0,0,cw,ch);
+        cv.toBlob(function(b){ if(!b||b.size>=f.size){ res(f); return; } res(new File([b], f.name.replace(/\.(png|jpe?g|webp|bmp)$/i,"")+".jpg", {type:"image/jpeg"})); },"image/jpeg",0.82);
+      };
+      im.onerror=function(){ try{URL.revokeObjectURL(u);}catch(e){} res(f); }; im.src=u;
+    }catch(e){ res(f); }
+  }); }
   function onFile(ev){ var files=ev.target.files; if(!files||!files.length) return; setUploading(true);
     var arr=[].slice.call(files);
-    (function next(i){ if(i>=arr.length){ setUploading(false); try{ev.target.value="";}catch(e){} carregar(); p.flash(arr.length+" arquivo(s) enviado(s) ✓"); return; }
-      var f=arr[i]; var path=p.clienteId+"/"+Date.now()+"_"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-      sb.storage.from("iso-evidencias").upload(path,f,{upsert:false}).then(function(r){
-        if(r.error){ setUploading(false); p.flash("Erro no upload: "+r.error.message,"err"); return; }
-        sb.from("iso_anexos").insert({cliente_id:p.clienteId,nome:f.name,path:path,tipo:f.type,tamanho:f.size}).then(function(x){ if(x.error){ setUploading(false); p.flash("Erro: "+x.error.message,"err"); return; } next(i+1); });
-      }).catch(function(e){ setUploading(false); p.flash("Erro: "+String(e),"err"); });
+    (function next(i){ if(i>=arr.length){ setUploading(false); setProg(""); try{ev.target.value="";}catch(e){} carregar(); p.flash(arr.length+" arquivo(s) enviado(s) ✓"); return; }
+      setProg((i+1)+"/"+arr.length);
+      compress(arr[i]).then(function(f){
+        var path=p.clienteId+"/"+Date.now()+"_"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        sb.storage.from("iso-evidencias").upload(path,f,{upsert:false,contentType:f.type||undefined}).then(function(r){
+          if(r.error){ setUploading(false); setProg(""); p.flash("Erro no upload: "+r.error.message,"err"); return; }
+          sb.from("iso_anexos").insert({cliente_id:p.clienteId,nome:f.name,path:path,tipo:f.type,tamanho:f.size}).then(function(x){ if(x.error){ setUploading(false); setProg(""); p.flash("Erro: "+x.error.message,"err"); return; } next(i+1); });
+        }).catch(function(e){ setUploading(false); setProg(""); p.flash("Erro: "+String(e),"err"); });
+      });
     })(0);
   }
+  function baixar(a){ sb.storage.from("iso-evidencias").createSignedUrl(a.path,120,{download:a.nome}).then(function(u){ var url=u&&u.data&&u.data.signedUrl; if(!url){ p.flash("Não foi possível gerar o download","err"); return; } var el=document.createElement("a"); el.href=url; el.download=a.nome||"arquivo"; document.body.appendChild(el); el.click(); document.body.removeChild(el); }).catch(function(){ p.flash("Falha no download","err"); }); }
   function excluir(a){ if(!window.confirm("Excluir \""+a.nome+"\"?")) return;
     sb.storage.from("iso-evidencias").remove([a.path]).then(function(){ sb.from("iso_anexos").delete().eq("id",a.id).then(function(){ carregar(); p.flash("Excluído"); }); });
   }
+  function fmt(n){ n=n||0; return n>1048576?(n/1048576).toFixed(1)+" MB":(n/1024).toFixed(0)+" KB"; }
+  function ext(a){ var m=(a.nome||"").split(".").pop().toLowerCase(); return (m&&m.length<=5)?m:""; }
+  function docIcon(a){ var e=ext(a); if(/pdf/.test(e))return"📕"; if(/docx?|odt|rtf/.test(e))return"📘"; if(/xlsx?|csv|ods/.test(e))return"📗"; if(/pptx?/.test(e))return"📙"; if(/txt|md|log/.test(e))return"📄"; if(/zip|rar|7z/.test(e))return"🗜️"; return"📎"; }
+  function isImg(a){ return /^image\//.test(a.tipo||"")||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(a.nome||""); }
+  var imgs=(lista||[]).filter(isImg), docs=(lista||[]).filter(function(a){return !isImg(a);});
   return h("div",null,
     h(TopBar,{title:"Mídias & Anexos",sub:"Fotos e evidências dos ativos · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
-      right:h("label",{className:"ip-btn sm",style:{cursor:"pointer"}}, uploading?"Enviando…":"⤒ Enviar arquivos", h("input",{type:"file",multiple:true,accept:"image/*,application/pdf",style:{display:"none"},onChange:onFile}))}),
+      right:h("label",{className:"ip-btn sm",style:{cursor:uploading?"default":"pointer",opacity:uploading?.7:1}}, uploading?("Enviando "+prog+"…"):"⤒ Enviar arquivos", h("input",{type:"file",multiple:true,style:{display:"none"},onChange:onFile,disabled:uploading}))}),
     lista===null?h("div",{className:"ip-muted"},h("span",{className:"spin"})," Carregando…"):
-    (lista.length?h("div",{className:"grid k4"}, lista.map(function(a){ var img=/^image\//.test(a.tipo||""); return h("div",{key:a.id,className:"ip-card",style:{overflow:"hidden"}},
-      (a._url&&img)?h("img",{src:a._url,style:{width:"100%",height:"140px",objectFit:"cover",display:"block"}}):h("div",{style:{height:"140px",display:"grid",placeItems:"center",fontSize:"32px",background:"rgba(255,255,255,.03)"}},"📄"),
-      h("div",{style:{padding:"10px 12px"}},
-        h("div",{style:{fontSize:"12px",fontWeight:500,wordBreak:"break-all"}},a.nome),
-        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"6px"}}, a._url?h("a",{href:a._url,target:"_blank",rel:"noopener",className:"ip-accent",style:{fontSize:"11px"}},"abrir"):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){excluir(a);}},"✕")))); }))
-    :h("div",{className:"ip-card ip-pad ip-faint"},"Nenhuma mídia ainda. Use \"⤒ Enviar arquivos\" para subir as fotos dos equipamentos e etiquetas (nº de série/MAC). Elas ficam ligadas a este cliente como evidência."))
+    h("div",null,
+      h("div",{className:"ip-noprint",style:{display:"flex",gap:"8px",marginBottom:"14px"}},
+        h("button",{className:"ip-btn sm"+(tab==="img"?"":" ghost"),onClick:function(){setTab("img");}},"🖼 Imagens ("+imgs.length+")"),
+        h("button",{className:"ip-btn sm"+(tab==="doc"?"":" ghost"),onClick:function(){setTab("doc");}},"📄 Documentos ("+docs.length+")")),
+      tab==="img"?
+        (imgs.length?h("div",{className:"grid k4"}, imgs.map(function(a){ return h("div",{key:a.id,className:"ip-card",style:{overflow:"hidden"}},
+          a._url?h("img",{src:a._url,loading:"lazy",style:{width:"100%",height:"150px",objectFit:"cover",display:"block",background:"rgba(255,255,255,.03)"}}):h("div",{style:{height:"150px",display:"grid",placeItems:"center"}},h("span",{className:"spin"})),
+          h("div",{style:{padding:"9px 11px"}},
+            h("div",{style:{fontSize:"12px",fontWeight:500,wordBreak:"break-all"}},a.nome),
+            h("div",{className:"ip-faint",style:{fontSize:"10px",marginTop:"2px"}},fmt(a.tamanho)),
+            h("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}},
+              a._url?h("a",{href:a._url,target:"_blank",rel:"noopener",className:"ip-btn ghost sm",style:{flex:1,textAlign:"center"}},"abrir"):null,
+              h("button",{className:"ip-btn ghost sm",title:"Baixar",onClick:function(){baixar(a);}},"⤓"),
+              h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){excluir(a);}},"✕")))); }))
+        :h("div",{className:"ip-card ip-pad ip-faint"},"Nenhuma imagem ainda. Use \"⤒ Enviar arquivos\" — as fotos são otimizadas automaticamente para carregar mais rápido."))
+      :
+        (docs.length?h("div",{className:"ip-card",style:{overflow:"hidden"}}, docs.map(function(a,ix){ return h("div",{key:a.id,style:{display:"flex",alignItems:"center",gap:"12px",padding:"11px 14px",borderTop:ix?"1px solid rgba(255,255,255,.06)":"none"}},
+          h("div",{style:{fontSize:"24px",width:"30px",textAlign:"center",flex:"0 0 auto"}},docIcon(a)),
+          h("div",{style:{flex:1,minWidth:0}}, h("div",{style:{fontSize:"13px",fontWeight:500,wordBreak:"break-all"}},a.nome), h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},(ext(a)?ext(a).toUpperCase()+" · ":"")+fmt(a.tamanho))),
+          h("button",{className:"ip-btn ghost sm",title:"Baixar",onClick:function(){baixar(a);}},"⤓ Baixar"),
+          h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){excluir(a);}},"✕")); }))
+        :h("div",{className:"ip-card ip-pad ip-faint"},"Nenhum documento ainda. Envie PDF, Word, Excel ou TXT — ficam listados aqui para download."))
+    )
   );
 }
 
