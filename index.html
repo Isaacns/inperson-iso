@@ -1137,6 +1137,15 @@ function Painel(p){
   var execItens=p.acompC||[];
   var execPct=pctExec(execItens);
   var execLink=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?acompanhar="+(p.shareC?p.shareC.token:"");
+  var _hd=function(iso){ if(!iso) return 0; return (Date.now()-new Date(iso).getTime())/3600000; };
+  var chAbertos=(p.chamadosC||[]).filter(function(c){ return c.status==="aberto"||c.status==="andamento"; });
+  var chSla=chAbertos.filter(function(c){ return _hd(c.aberto_em)>(c.sla_horas||24); });
+  var relEmitido=(p.relatoriosC||[]).filter(function(r){ return r.competencia===comp; })[0];
+  var alertas=[];
+  if(pend>0) alertas.push({ic:"📋",txt:pend+" evidência(s) do mês pendente(s)",cor:"var(--ip-warn)",btn:"Preencher",act:function(){ p.setView("evidencias"); }});
+  if(chSla.length) alertas.push({ic:"⏱",txt:chSla.length+" chamado(s) com SLA estourado",cor:"var(--ip-danger)",btn:"Ver",act:function(){ p.setView("chamados"); }});
+  else if(chAbertos.length) alertas.push({ic:"🎧",txt:chAbertos.length+" chamado(s) em aberto",cor:"var(--ip-accent)",btn:"Ver",act:function(){ p.setView("chamados"); }});
+  if(!relEmitido) alertas.push({ic:"📄",txt:"Relatório de "+ymLabel(comp)+" ainda não emitido ao cliente",cor:"var(--ip-warn)",btn:"Emitir",act:function(){ p.setView("relatorio"); }});
   var cards=[
     {l:"Execução do serviço",v:execItens.length?execPct+"%":"—",c:execPct===100?"var(--ip-ok)":"var(--ip-accent)"},
     {l:"Conformidade do mês",v:pct+"%",c:pct===100?"var(--ip-ok)":(pct>=50?"var(--ip-warn)":"var(--ip-danger)")},
@@ -1148,6 +1157,11 @@ function Painel(p){
   return h("div",null,
     h(TopBar,{title:"Painel · "+p.clienteNome,sub:"Visão geral do serviço e da conformidade · "+ymLabel(comp),clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId}),
     h("div",{className:"grid k4",style:{marginBottom:"18px"}}, cards.map(function(c,i){ return h("div",{key:i,className:"ip-card ip-pad kpi-card lift"}, h("div",{className:"ip-sub"},c.l), h("div",{className:"kpi-big",style:{color:c.c,marginTop:"8px"}},c.v)); })),
+    h("div",{className:"ip-card ip-pad",style:{marginBottom:"18px",borderColor:alertas.length?"var(--ip-warn)":"var(--ip-ok)"}},
+      h("h3",{style:{fontSize:"16px",marginBottom:alertas.length?"12px":"0"}}, alertas.length?("⚠ Pendências deste mês · "+alertas.length):"✓ Tudo em dia este mês — nada pendente"),
+      alertas.map(function(a,i){ return h("div",{key:i,className:"ck-row"},
+        h("div",{style:{display:"flex",alignItems:"center",gap:"10px",minWidth:0}}, h("span",{style:{fontSize:"18px"}},a.ic), h("span",{style:{fontWeight:500,color:a.cor}},a.txt)),
+        h("button",{className:"ip-btn sm",onClick:a.act},a.btn)); })),
     execItens.length?h("div",{className:"ip-card ip-pad",style:{marginBottom:"18px"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px",marginBottom:"10px"}},
         h("h3",{style:{fontSize:"16px"}},"Execução do serviço contratado"),
