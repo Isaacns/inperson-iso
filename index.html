@@ -391,7 +391,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["clientes","🏢","Clientes"]];
+  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -403,6 +403,7 @@ function App(){
   else if(view==="relatorio") body=h(RelatorioMensal,ctx);
   else if(view==="historico") body=h(Historico,ctx);
   else if(view==="inventario") body=h(Inventario,ctx);
+  else if(view==="anexos") body=h(Anexos,ctx);
   else if(view==="clientes") body=h(Clientes,ctx);
 
   return h(React.Fragment,null, h(Bgfx),
@@ -596,6 +597,43 @@ function AcompPublico(p){
         h("div",{style:{flex:1,minWidth:0}}, h("div",{style:{fontWeight:500}},it.item), it.descricao?h("div",{className:"ip-faint",style:{fontSize:"12px",marginTop:"2px"}},it.descricao):null, it.observacao?h("div",{style:{fontSize:"12px",marginTop:"6px",color:"var(--ip-accent-2)"}},"↳ "+it.observacao):null),
         h("span",{className:cx("bdg",si.c)},si.l)); }))); }),
     h("div",{className:"ip-faint",style:{textAlign:"center",fontSize:"11px",marginTop:"24px"}},"INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · (71) 99168-4231 · atualizado em tempo real")
+  );
+}
+
+/* ---------- Mídias & Anexos (fotos dos ativos / evidências) ---------- */
+function Anexos(p){
+  var ls=useState(null), lista=ls[0], setLista=ls[1];
+  var up=useState(false), uploading=up[0], setUploading=up[1];
+  function carregar(){
+    sb.from("iso_anexos").select("*").eq("cliente_id",p.clienteId).order("criado_em",{ascending:false}).then(function(r){
+      var rows=r.data||[];
+      Promise.all(rows.map(function(a){ return sb.storage.from("iso-evidencias").createSignedUrl(a.path,3600).then(function(u){ a._url=(u&&u.data&&u.data.signedUrl)||null; return a; }).catch(function(){ a._url=null; return a; }); })).then(function(rr){ setLista(rr); });
+    });
+  }
+  useEffect(function(){ setLista(null); if(p.clienteId) carregar(); },[p.clienteId]);
+  function onFile(ev){ var files=ev.target.files; if(!files||!files.length) return; setUploading(true);
+    var arr=[].slice.call(files);
+    (function next(i){ if(i>=arr.length){ setUploading(false); try{ev.target.value="";}catch(e){} carregar(); p.flash(arr.length+" arquivo(s) enviado(s) ✓"); return; }
+      var f=arr[i]; var path=p.clienteId+"/"+Date.now()+"_"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      sb.storage.from("iso-evidencias").upload(path,f,{upsert:false}).then(function(r){
+        if(r.error){ setUploading(false); p.flash("Erro no upload: "+r.error.message,"err"); return; }
+        sb.from("iso_anexos").insert({cliente_id:p.clienteId,nome:f.name,path:path,tipo:f.type,tamanho:f.size}).then(function(x){ if(x.error){ setUploading(false); p.flash("Erro: "+x.error.message,"err"); return; } next(i+1); });
+      }).catch(function(e){ setUploading(false); p.flash("Erro: "+String(e),"err"); });
+    })(0);
+  }
+  function excluir(a){ if(!window.confirm("Excluir \""+a.nome+"\"?")) return;
+    sb.storage.from("iso-evidencias").remove([a.path]).then(function(){ sb.from("iso_anexos").delete().eq("id",a.id).then(function(){ carregar(); p.flash("Excluído"); }); });
+  }
+  return h("div",null,
+    h(TopBar,{title:"Mídias & Anexos",sub:"Fotos e evidências dos ativos · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+      right:h("label",{className:"ip-btn sm",style:{cursor:"pointer"}}, uploading?"Enviando…":"⤒ Enviar arquivos", h("input",{type:"file",multiple:true,accept:"image/*,application/pdf",style:{display:"none"},onChange:onFile}))}),
+    lista===null?h("div",{className:"ip-muted"},h("span",{className:"spin"})," Carregando…"):
+    (lista.length?h("div",{className:"grid k4"}, lista.map(function(a){ var img=/^image\//.test(a.tipo||""); return h("div",{key:a.id,className:"ip-card",style:{overflow:"hidden"}},
+      (a._url&&img)?h("img",{src:a._url,style:{width:"100%",height:"140px",objectFit:"cover",display:"block"}}):h("div",{style:{height:"140px",display:"grid",placeItems:"center",fontSize:"32px",background:"rgba(255,255,255,.03)"}},"📄"),
+      h("div",{style:{padding:"10px 12px"}},
+        h("div",{style:{fontSize:"12px",fontWeight:500,wordBreak:"break-all"}},a.nome),
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"6px"}}, a._url?h("a",{href:a._url,target:"_blank",rel:"noopener",className:"ip-accent",style:{fontSize:"11px"}},"abrir"):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){excluir(a);}},"✕")))); }))
+    :h("div",{className:"ip-card ip-pad ip-faint"},"Nenhuma mídia ainda. Use \"⤒ Enviar arquivos\" para subir as fotos dos equipamentos e etiquetas (nº de série/MAC). Elas ficam ligadas a este cliente como evidência."))
   );
 }
 
