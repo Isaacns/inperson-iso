@@ -442,7 +442,11 @@ function App(){
     var sub=sb.auth.onAuthStateChange(function(_e,s){ setSess(s); });
     function onBip(e){ e.preventDefault(); setDefer(e); }
     window.addEventListener("beforeinstallprompt",onBip);
-    if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }
+    if("serviceWorker" in navigator){
+      var _hadCtrl=!!navigator.serviceWorker.controller, _refreshing=false;
+      navigator.serviceWorker.addEventListener("controllerchange",function(){ if(_refreshing)return; _refreshing=true; if(_hadCtrl) location.reload(); });
+      navigator.serviceWorker.register("./sw.js").then(function(reg){ try{ reg.update(); }catch(x){} }).catch(function(){});
+    }
     return function(){ window.removeEventListener("beforeinstallprompt",onBip); if(sub&&sub.data&&sub.data.subscription) sub.data.subscription.unsubscribe(); };
   },[]);
 
