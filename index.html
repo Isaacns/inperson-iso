@@ -694,6 +694,7 @@ function Carteira(p){
   function gerarFatura(c){ var venc=comp+"-"+String(c.dia_vencimento||10).padStart(2,"0");
     sb.from("iso_faturas").insert({cliente_id:c.cliente_id,contrato_id:c.id,competencia:comp,valor:c.valor_mensal,vencimento:venc,status:"aberto"}).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash("Fatura gerada ✓"); p.reload(); }); }
   function marcarPago(fat){ sb.from("iso_faturas").update({status:"pago",pago_em:new Date().toISOString()}).eq("id",fat.id).then(function(r){ if(r.error){p.flash("Erro","err");return;} p.flash("Fatura baixada ✓"); p.reload(); }); }
+  function cobrar(c,fat){ var d=fat.vencimento?fat.vencimento.split("-").reverse().join("/"):""; var msg="Olá! Referente aos serviços da "+cliNome(c.cliente_id)+" ("+c.servico+"), a fatura de "+brl(fat.valor)+(fat.status==="atrasado"?(" venceu em "+d):(" vence em "+d))+". Qualquer dúvida, estou à disposição. — INPERSON Soluções em Tecnologia"; window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank","noopener"); }
   function kcard(l,v,cor){ return h("div",{className:"ip-card ip-pad",style:{flex:1,minWidth:"160px"}}, h("div",{className:"ip-sub"},l), h("div",{className:"kpi-big",style:{color:cor||"var(--ip-accent)",marginTop:"4px",fontSize:"23px"}},v)); }
   return h("div",null,
     h(TopBar,{title:"Carteira & Financeiro",sub:"Contratos e receita recorrente · visão da carteira",clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
@@ -723,6 +724,7 @@ function Carteira(p){
         h("td",null, fat?h("span",{className:"ip-pill",style:{color:fat.status==="pago"?"var(--ip-ok)":(fat.status==="atrasado"?"var(--ip-danger)":"var(--ip-warn)")}},fat.status):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"não gerada")),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
           (!fat)?h("button",{className:"ip-btn ghost sm act",onClick:function(){gerarFatura(c);}},"Gerar fatura"):(fat.status!=="pago"?h("button",{className:"ip-btn sm act",onClick:function(){marcarPago(fat);}},"✓ Baixar"):null),
+          (fat&&fat.status!=="pago")?h("button",{className:"ip-btn ghost sm act",onClick:function(){cobrar(c,fat);}},"Cobrar"):null,
           h("button",{className:"ip-btn ghost sm act",onClick:function(){ setForm({cliente_id:c.cliente_id,servico:c.servico,valor_mensal:c.valor_mensal,dia_vencimento:c.dia_vencimento,status:c.status}); setNovo(c); }},"Editar")))); }):h("tr",null,h("td",{colSpan:6,className:"ip-faint"},"Nenhum contrato. Use \"+ Novo contrato\" para começar a gerir a receita recorrente da carteira.")))
     ))
   );
