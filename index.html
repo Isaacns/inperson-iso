@@ -207,6 +207,17 @@ h1,h2,h3{font-weight:300;margin:0}
 .acp-ct-input:focus{outline:none;border-color:var(--ip-accent)}
 .acp-ct-legal{font-size:10px;color:var(--ip-muted);line-height:1.45}
 .acp-ct-aceito{font-size:12.5px;font-weight:600;color:var(--ip-ok);background:rgba(95,191,143,.1);border:1px solid rgba(95,191,143,.4);border-radius:10px;padding:9px 12px}
+.fin-chart{display:flex;align-items:flex-end;gap:6px;height:140px;padding:0 2px}
+.fin-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.fin-bars{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:120px}
+.fin-bar{width:9px;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.2,.7,.2,1)}
+.fin-bar.fat{background:linear-gradient(180deg,rgba(116,176,216,.55),rgba(116,176,216,.2))}
+.fin-bar.rec{background:linear-gradient(180deg,var(--ip-ok),rgba(95,191,143,.45))}
+.fin-lbl{font-size:9.5px;color:var(--ip-muted);white-space:nowrap}
+.fin-leg{display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;color:var(--ip-muted)}
+.fin-leg span{display:inline-flex;align-items:center;gap:6px}
+.fin-leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.fin-leg i.fat{background:rgba(116,176,216,.55)} .fin-leg i.rec{background:var(--ip-ok)}
 .acp-relmodal{position:fixed;inset:0;z-index:80;background:rgba(2,6,14,.78);backdrop-filter:blur(5px);overflow:auto;padding:24px;display:flex;justify-content:center;align-items:flex-start}
 .acp-reldoc{background:#fff;color:#132435;width:100%;max-width:640px;border-radius:14px;padding:26px 28px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .acp-reltop{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px}
@@ -351,6 +362,7 @@ var MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto
 function ymLabel(ym){ if(!ym) return "—"; var p=ym.split("-"); var m=parseInt(p[1],10); return (MESES[m-1]||p[1])+"/"+p[0]; }
 function todayISO(){ var d=new Date(); return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
 function brDate(s){ if(!s) return "—"; var p=String(s).slice(0,10).split("-"); if(p.length<3) return s; return p[2]+"/"+p[1]+"/"+p[0]; }
+function ymList(n){ var out=[]; var d=new Date(); for(var i=n-1;i>=0;i--){ var dd=new Date(d.getFullYear(),d.getMonth()-i,1); out.push(dd.getFullYear()+"-"+pad2(dd.getMonth()+1)); } return out; }
 function lastYMs(n){ var out=[],d=new Date(); for(var i=0;i<n;i++){ out.push(d.getFullYear()+"-"+pad2(d.getMonth()+1)); d.setMonth(d.getMonth()-1);} return out; }
 
 /* ---------- definições dos formulários (modelo vive aqui no v1) ---------- */
@@ -798,7 +810,30 @@ function Carteira(p){
           c.arquivo_path?h("button",{className:"ip-btn ghost sm act",onClick:function(){verContrato(c);}},"⬇ Ver"):null,
           c.arquivo_path?h("button",{className:"ip-btn "+(c.publicado_cliente?"sm act":"ghost sm act"),onClick:function(){togglePub(c);}}, c.publicado_cliente?"👁 Publicado":"🚫 Publicar p/ cliente"):null,
           h("button",{className:"ip-btn ghost sm act",onClick:function(){ setForm({cliente_id:c.cliente_id,servico:c.servico,valor_mensal:c.valor_mensal,dia_vencimento:c.dia_vencimento,status:c.status}); setNovo(c); }},"Editar")))); }):h("tr",null,h("td",{colSpan:6,className:"ip-faint"},"Nenhum contrato. Use \"+ Novo contrato\" para começar a gerir a receita recorrente da carteira.")))
-    ))
+    )),
+    (function(){
+      var meses=ymList(12);
+      var serie=meses.map(function(m){ var fs=faturas.filter(function(x){ return x.competencia===m; });
+        var rec=fs.filter(function(x){ return x.status==="pago"; }).reduce(function(a,x){ return a+Number(x.valor||0); },0);
+        var fat=fs.filter(function(x){ return x.status!=="cancelado"; }).reduce(function(a,x){ return a+Number(x.valor||0); },0);
+        return {comp:m,rec:rec,fat:fat}; });
+      var maxV=serie.reduce(function(a,s){ return Math.max(a,s.fat,s.rec); },0)||1;
+      var anoAtual=String(new Date().getFullYear());
+      var recAno=faturas.filter(function(x){ return x.status==="pago"&&String(x.competencia).slice(0,4)===anoAtual; }).reduce(function(a,x){ return a+Number(x.valor||0); },0);
+      var abertoTot=faturas.filter(function(x){ return x.status!=="pago"&&x.status!=="cancelado"; }).reduce(function(a,x){ return a+Number(x.valor||0); },0);
+      var temDados=serie.some(function(s){ return s.fat>0||s.rec>0; });
+      return h("div",{className:"ip-card ip-pad",style:{marginTop:"16px"}},
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:"8px",marginBottom:"12px"}},
+          h("div",{className:"ip-sub"},"Evolução da receita — últimos 12 meses"),
+          h("div",{style:{fontSize:"12px",color:"var(--ip-muted)"}},"Recebido em "+anoAtual+": ",h("b",{style:{color:"var(--ip-ok)"}},brl(recAno)),"  ·  Em aberto: ",h("b",{style:{color:"var(--ip-warn)"}},brl(abertoTot)))),
+        temDados?h("div",null,
+          h("div",{className:"fin-chart"}, serie.map(function(s){ var hf=Math.max(s.fat>0?3:0,Math.round((s.fat/maxV)*118)); var hr=Math.max(s.rec>0?3:0,Math.round((s.rec/maxV)*118)); return h("div",{key:s.comp,className:"fin-col",title:ymLabel(s.comp)+" · faturado "+brl(s.fat)+" · recebido "+brl(s.rec)},
+            h("div",{className:"fin-bars"}, h("div",{className:"fin-bar fat",style:{height:hf+"px"}}), h("div",{className:"fin-bar rec",style:{height:hr+"px"}})),
+            h("div",{className:"fin-lbl"}, s.comp.slice(5)+"/"+s.comp.slice(2,4))); })),
+          h("div",{className:"fin-leg"}, h("span",null,h("i",{className:"fat"}),"Faturado"), h("span",null,h("i",{className:"rec"}),"Recebido"))
+        ):h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Ainda não há faturas geradas. Assim que você gerar e baixar faturas, a evolução da receita aparece aqui.")
+      );
+    })()
   );
 }
 
