@@ -1072,16 +1072,26 @@ function RelatorioMensal(p){
     if(!cliEmail){ p.flash("Cadastre o e-mail do cliente na aba Clientes.","err"); return; }
     var tok=p.shareC&&p.shareC.token;
     var link=tok?("https://iso.inpersonaltec.com.br/?acompanhar="+tok):"";
-    var html='<div style="font-family:Segoe UI,Arial,sans-serif;color:#132435;max-width:560px">'
-      +'<h2 style="color:#0d2440;font-weight:600">Relatório de Conformidade — '+ymLabel(comp)+'</h2>'
-      +'<p>Olá! O Relatório de Conformidade da infraestrutura da <b>'+p.clienteNome+'</b> referente a <b>'+ymLabel(comp)+'</b> está disponível.</p>'
-      +'<table style="border-collapse:collapse;font-size:14px;margin:8px 0"><tbody>'
-      +'<tr><td style="padding:6px 10px;border:1px solid #e2e9f0">Conformidade das evidências</td><td style="padding:6px 10px;border:1px solid #e2e9f0"><b>'+confPct+'%</b></td></tr>'
-      +'<tr><td style="padding:6px 10px;border:1px solid #e2e9f0">Execução do serviço</td><td style="padding:6px 10px;border:1px solid #e2e9f0"><b>'+execPctV+'%</b></td></tr>'
-      +'<tr><td style="padding:6px 10px;border:1px solid #e2e9f0">Chamados no período</td><td style="padding:6px 10px;border:1px solid #e2e9f0"><b>'+chMes.length+'</b> ('+chResolv.length+' resolvidos)</td></tr>'
+    var SIG="https://iso.inpersonaltec.com.br/assets/email-assinatura.jpg";
+    var _rw=function(l,v){ return '<tr><td style="padding:9px 12px;border-bottom:1px solid #eef2f7;color:#41566f;font-size:13.5px">'+l+'</td><td style="padding:9px 12px;border-bottom:1px solid #eef2f7;text-align:right;font-weight:600;color:#0d2440;font-size:13.5px">'+v+'</td></tr>'; };
+    var html='<div style="background:#eef2f7;padding:24px 12px;font-family:Segoe UI,Arial,sans-serif">'
+      +'<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(20,40,70,.08)">'
+      +'<div style="background:#0a1424;padding:22px 26px"><div style="color:#74B0D8;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase">Relatório de Conformidade · ISO 9001:2015</div><div style="color:#fff;font-size:21px;font-weight:600;margin-top:5px;text-transform:capitalize">'+ymLabel(comp)+'</div></div>'
+      +'<div style="padding:26px">'
+      +'<p style="color:#25384f;font-size:15px;margin:0 0 14px">Olá! Tudo bem?</p>'
+      +'<p style="color:#41566f;font-size:14px;line-height:1.65;margin:0 0 20px">Segue o resumo da manutenção e do monitoramento da infraestrutura da <b>'+p.clienteNome+'</b> no período de <b>'+ymLabel(comp)+'</b>. Como fornecedor externo qualificado (ISO 9001:2015, cláusula 8.4), mantemos a sua operação monitorada, documentada e em conformidade.</p>'
+      +'<table style="width:100%;border-collapse:collapse;border:1px solid #eef2f7;border-radius:10px;overflow:hidden;margin-bottom:20px"><tbody>'
+      +_rw("Conformidade das evidências",confPct+"%")
+      +_rw("Execução do serviço contratado",execPctV+"%")
+      +_rw("Chamados de atendimento no período",chMes.length+" ("+chResolv.length+" resolvidos)")
       +'</tbody></table>'
-      +(link?('<p style="margin:16px 0"><a href="'+link+'" style="background:#2C6BE0;color:#fff;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600">Ver acompanhamento e relatórios</a></p>'):'')
-      +'<p style="color:#5b6b80;font-size:12px;margin-top:18px">INPERSON Soluções em Tecnologia · Sistema de Gestão da Qualidade (ISO 9001:2015)</p></div>';
+      +(link?('<div style="text-align:center;margin:22px 0"><a href="'+link+'" style="background:linear-gradient(135deg,#2C6BE0,#1C4FB0);color:#fff;padding:13px 26px;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px;display:inline-block">Ver acompanhamento e relatórios</a></div>'):'')
+      +'<p style="color:#41566f;font-size:13.5px;line-height:1.6;margin:8px 0 0">Qualquer dúvida, é só responder este e-mail. Estamos à disposição.</p>'
+      +'</div>'
+      +'<div style="padding:4px 20px 22px"><img src="'+SIG+'" width="560" style="width:100%;max-width:560px;border-radius:10px;display:block" alt="INPERSON Soluções em Tecnologia" /></div>'
+      +'</div>'
+      +'<div style="text-align:center;color:#9aa8bd;font-size:11px;margin-top:14px">INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · Salvador/BA</div>'
+      +'</div>';
     p.flash("Enviando e-mail…");
     sb.functions.invoke("iso-enviar-email",{body:{to:cliEmail,subject:"Relatório de Conformidade "+ymLabel(comp)+" — "+p.clienteNome,html:html}}).then(function(r){
       if(r.error||(r.data&&r.data.error)){ p.flash("Falha no e-mail: "+((r.data&&r.data.error)||(r.error&&r.error.message)||"erro"),"err"); }
