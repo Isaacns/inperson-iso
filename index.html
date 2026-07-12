@@ -887,7 +887,7 @@ function Execucao(p){
   var pct=pctExec(items);
   var nVal=items.filter(function(i){return i.status==="validado";}).length;
   var nCon=items.filter(function(i){return i.status==="concluido"||i.status==="validado";}).length;
-  var link=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?acompanhar="+(p.shareC?p.shareC.token:"");
+  var link=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?c="+(p.shareC?(p.shareC.slug||p.shareC.token):"");
   function copiarLink(){ try{ navigator.clipboard.writeText(link); p.flash("Link copiado ✓"); }catch(e){ p.flash(link,"ok"); } }
 
   return h("div",null,
