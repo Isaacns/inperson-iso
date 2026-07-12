@@ -871,6 +871,7 @@ function AcompPublico(p){
         h("table",{className:"acp-reltbl"}, h("tbody",null,
           h("tr",null,h("td",null,"Conformidade das evidências"),h("td",null,(d.confPct!=null?d.confPct+"% ("+d.done+"/"+d.total+")":"—"))),
           h("tr",null,h("td",null,"Execução do serviço contratado"),h("td",null,(d.execPct!=null?d.execPct+"%":"—"))),
+          (d.redeDisp!=null?h("tr",null,h("td",null,"Disponibilidade da rede (30 dias)"),h("td",null,d.redeDisp+"%")):null),
           h("tr",null,h("td",null,"Chamados no período"),h("td",null,(d.chamados?(d.chamados.total+" registrados · "+d.chamados.resolvidos+" resolvidos"):"—"))),
           h("tr",null,h("td",null,"Não conformidades"),h("td",null,String(d.ncs!=null?d.ncs:"—"))))),
         (d.kpis&&d.kpis.length)?h("div",null,h("h3",null,"Indicadores do mês"),h("table",{className:"acp-reltbl"},h("tbody",null,d.kpis.map(function(k,i){ return h("tr",{key:i},h("td",null,k.l),h("td",null,k.v)); })))):null,
@@ -1030,6 +1031,10 @@ function Anexos(p){
 function RelatorioMensal(p){
   var cm=useState(nowYM()), comp=cm[0], setComp=cm[1];
   var sv=useState(false), saving=sv[0], setSaving=sv[1];
+  var rd=useState(null), redeDisp=rd[0], setRedeDisp=rd[1];
+  useEffect(function(){ if(!p.clienteId){ setRedeDisp(null); return; }
+    sb.rpc("iso_rede_status",{p_cliente:p.clienteId}).then(function(r){ var arr=(r&&!r.error&&r.data)||[]; var int=arr.filter(function(a){ return !/8\.8\.8\.8|internet/i.test(a.alvo||""); }); setRedeDisp(int.length?Math.round(10*int.reduce(function(a,x){return a+(x.disp_30d||0);},0)/int.length)/10:null); }).catch(function(){ setRedeDisp(null); });
+  },[p.clienteId]);
   var opts=lastYMs(12);
   function reg(code){ return findReg(p.regsC,code,comp); }
   var man=reg("FOR-MAN-001"),seg=reg("FOR-SEG-001"),kpi=reg("FOR-KPI-001"),ace=reg("FOR-ACE-001");
@@ -1051,7 +1056,7 @@ function RelatorioMensal(p){
 
   function snapshot(){ return {
     competencia:comp, cliente:p.clienteNome, emissao:emissao,
-    confPct:confPct, done:done, total:mensais.length, execPct:execPctV,
+    confPct:confPct, done:done, total:mensais.length, execPct:execPctV, redeDisp:redeDisp,
     chamados:{total:chMes.length, resolvidos:chResolv.length}, ncs:ncs.length,
     kpis:kpiDef.campos.map(function(c){ return {l:c.l, v:(kpiVals[c.k]!=null&&kpiVals[c.k]!=="")?(kpiVals[c.k]+(c.suf?" "+c.suf:"")):"—"}; }),
     evidencias:mensais.map(function(m){ var r=m[2]; return {codigo:m[0], titulo:m[1], status:r?statusInfo(r.status).txt:"Pendente", feito:feito(r), concluido_em:(r&&r.concluido_em)?brDate(r.concluido_em):"—"}; }),
@@ -1084,6 +1089,7 @@ function RelatorioMensal(p){
       +'<table style="width:100%;border-collapse:collapse;border:1px solid #eef2f7;border-radius:10px;overflow:hidden;margin-bottom:20px"><tbody>'
       +_rw("Conformidade das evidências",confPct+"%")
       +_rw("Execução do serviço contratado",execPctV+"%")
+      +(redeDisp!=null?_rw("Disponibilidade da rede (30 dias)",redeDisp+"%"):"")
       +_rw("Chamados de atendimento no período",chMes.length+" ("+chResolv.length+" resolvidos)")
       +'</tbody></table>'
       +(link?('<div style="text-align:center;margin:22px 0"><a href="'+link+'" style="background:linear-gradient(135deg,#2C6BE0,#1C4FB0);color:#fff;padding:13px 26px;border-radius:9px;text-decoration:none;font-weight:600;font-size:14px;display:inline-block">Ver acompanhamento e relatórios</a></div>'):'')
@@ -1129,6 +1135,7 @@ function RelatorioMensal(p){
           h("tbody",null,
             h("tr",null,h("td",null,"Conformidade das evidências mensais"),h("td",null,h("span",{className:confPct===100?"res-ok":"res-pa"},confPct+"% ("+done+"/"+mensais.length+")"))),
             h("tr",null,h("td",null,"Execução do serviço contratado"),h("td",null,execPctV+"%")),
+            redeDisp!=null?h("tr",null,h("td",null,"Disponibilidade da rede (30 dias)"),h("td",null,h("span",{className:redeDisp>=99?"res-ok":(redeDisp>=95?"res-pa":"res-nc")},redeDisp+"%"))):null,
             h("tr",null,h("td",null,"Chamados de atendimento no período"),h("td",null,chMes.length+" registrados · "+chResolv.length+" resolvidos")),
             h("tr",null,h("td",null,"Não conformidades registradas no mês"),h("td",null,h("span",{className:ncs.length?"res-nc":"res-ok"},String(ncs.length)))))),
 
