@@ -1528,7 +1528,7 @@ function Documentos(p){
           var form=temForm(d)?defDe(d.codigo):null;
           var f=form?freqDoc(d):null;
           return h("tr",{key:d.id},
-            h("td",null,h("b",{className:"tbl-codigo"},d.codigo)),
+            h("td",null,h("b",{className:"tbl-codigo"},d.codigo), d.drive_url?h("a",{href:d.drive_url,target:"_blank",rel:"noopener",title:"Documento oficial no Google Drive",style:{marginLeft:"6px",textDecoration:"none"}},"📎"):null),
             h("td",null,d.titulo),
             h("td",{className:"ip-muted"},d.tipo),
             h("td",{className:"ip-muted"},freqLabel(d.frequencia)),
@@ -1964,11 +1964,12 @@ function DocEditor(p){
   var cs=useState(doc.conteudo||""), conteudo=cs[0], setConteudo=cs[1];
   var rs=useState(doc.revisao||"01"), revisao=rs[0], setRevisao=rs[1];
   var ns=useState(""), nota=ns[0], setNota=ns[1];
+  var du=useState(doc.drive_url||""), driveUrl=du[0], setDriveUrl=du[1];
   var sv=useState(false), saving=sv[0], setSaving=sv[1];
   function bump(r){ var n=parseInt(r,10); if(isNaN(n)) return r; n=n+1; return (n<10?"0":"")+n; }
   function salvar(novaRev){ setSaving(true);
     function doUpdate(rev){
-      sb.from("iso_documentos").update({conteudo:conteudo,revisao:rev,status:"vigente",atualizado_em:new Date().toISOString()}).eq("id",doc.id).then(function(r){
+      sb.from("iso_documentos").update({conteudo:conteudo,drive_url:(driveUrl||"").trim()||null,revisao:rev,status:"vigente",atualizado_em:new Date().toISOString()}).eq("id",doc.id).then(function(r){
         setSaving(false); if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; }
         p.flash(novaRev?("Revisão "+rev+" publicada ✓"):"Documento salvo ✓"); p.reload(); p.setEditDoc(null); p.setView("documentos");
       }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
@@ -1981,12 +1982,14 @@ function DocEditor(p){
     h("div",{className:"ip-topbar ip-noprint"},
       h("div",null,h("div",{className:"ip-h1"},doc.codigo+" — "+doc.titulo),h("div",{className:"ip-sub"},"Documento controlado (estático) · revisão "+revisao)),
       h("div",{style:{display:"flex",gap:"10px"}},
+        driveUrl?h("a",{className:"ip-btn ghost",href:driveUrl,target:"_blank",rel:"noopener",title:"Abrir o documento oficial no Google Drive"},"📎 Oficial (Drive)"):null,
         h("button",{className:"ip-btn ghost",onClick:function(){ p.setEditDoc(null); p.setView("documentos"); }},"← Voltar"),
         h("button",{className:"ip-btn",onClick:function(){ window.print(); }},"⎙ PDF"))),
     h("div",{className:"ip-card ip-pad ip-noprint",style:{marginBottom:"18px"}},
       h("div",{className:"grid k2"},
         h(Field,{label:"Revisão"}, h("input",{className:"ip-input",value:revisao,onChange:function(e){setRevisao(e.target.value);}})),
         h(Field,{label:"Nota da revisão (ao publicar nova)"}, h("input",{className:"ip-input",placeholder:"o que mudou nesta revisão",value:nota,onChange:function(e){setNota(e.target.value);}}))),
+      h(Field,{label:"Documento oficial no Google Drive (link)"}, h("input",{className:"ip-input",placeholder:"cole aqui o link do arquivo oficial (docx/PDF assinado) — opcional",value:driveUrl,onChange:function(e){setDriveUrl(e.target.value);}})),
       h(Field,{label:"Conteúdo do documento"}, h("textarea",{className:"ip-input",rows:12,value:conteudo,onChange:function(e){setConteudo(e.target.value);}})),
       h("div",{style:{display:"flex",gap:"10px"}},
         h("button",{className:"ip-btn ghost",disabled:saving,onClick:function(){ salvar(false); }},saving?"Salvando…":"Salvar (mesma revisão)"),
