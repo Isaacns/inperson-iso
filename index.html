@@ -36,11 +36,28 @@ a{color:var(--ip-accent);text-decoration:none}
 button{font-family:inherit}
 h1,h2,h3{font-weight:300;margin:0}
 /* fundo vivo */
-.ip-bgfx{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-.ip-blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;mix-blend-mode:screen;will-change:transform}
-.ip-blob.b1{width:46vw;height:46vw;left:-8vw;top:-10vw;background:radial-gradient(circle,#1f5e8a,transparent 70%);animation:ip-aurora 22s ease-in-out infinite}
-.ip-blob.b2{width:40vw;height:40vw;right:-6vw;top:8vh;background:radial-gradient(circle,#0e3a5c,transparent 70%);animation:ip-aurora 28s ease-in-out infinite reverse}
-.ip-blob.b3{width:50vw;height:50vw;left:18vw;bottom:-22vw;background:radial-gradient(circle,#14506e,transparent 70%);animation:ip-aurora 34s ease-in-out infinite}
+/* AURA — luz da marca INPERSON (paridade com o cockpit VIZIO) */
+.ip-bgfx{position:fixed;inset:-12%;z-index:0;overflow:hidden;pointer-events:none;will-change:transform;transition:transform .12s linear}
+.ip-glow{position:absolute;inset:0;mix-blend-mode:screen;background:
+  radial-gradient(46vw 46vw at 50% 30%,rgba(116,176,216,.20),transparent 62%),
+  radial-gradient(60vw 44vw at 12% -6%,rgba(31,94,138,.28),transparent 66%),
+  radial-gradient(52vw 40vw at 106% 4%,rgba(191,224,245,.10),transparent 64%);
+  animation:ip-breathe 7s ease-in-out infinite}
+@keyframes ip-breathe{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+.ip-floor{position:absolute;left:50%;bottom:-14%;width:120vw;height:52vh;transform:translateX(-50%);mix-blend-mode:screen;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(116,176,216,.18),rgba(116,176,216,.05) 45%,transparent 72%);
+  filter:blur(12px);animation:ip-floor 9s ease-in-out infinite}
+@keyframes ip-floor{0%,100%{opacity:.5;transform:translateX(-50%) scaleY(1)}50%{opacity:.9;transform:translateX(-50%) scaleY(1.12)}}
+.ip-ray{position:absolute;top:42%;height:2px;mix-blend-mode:screen;filter:blur(1.4px);opacity:0}
+.ip-ray i{display:block;height:100%;border-radius:99px}
+.ip-ray.l{left:-6%;width:52%;transform:rotate(-3.2deg);animation:ip-rayL 6s ease-in-out infinite}
+.ip-ray.r{right:-6%;width:52%;transform:rotate(3.2deg);animation:ip-rayR 6s ease-in-out infinite .9s}
+.ip-ray.l i{background:linear-gradient(90deg,transparent,rgba(116,176,216,.5) 62%,rgba(191,224,245,.9))}
+.ip-ray.r i{background:linear-gradient(270deg,transparent,rgba(116,176,216,.5) 62%,rgba(191,224,245,.9))}
+@keyframes ip-rayL{0%,100%{opacity:.14;transform:rotate(-3.2deg) translateX(-2%)}50%{opacity:.7;transform:rotate(-3.2deg) translateX(0)}}
+@keyframes ip-rayR{0%,100%{opacity:.14;transform:rotate(3.2deg) translateX(2%)}50%{opacity:.7;transform:rotate(3.2deg) translateX(0)}}
+.ip-parts{position:absolute;inset:0;mix-blend-mode:screen;opacity:.8}
+@media (prefers-reduced-motion: reduce){ .ip-glow,.ip-floor,.ip-ray{animation:none!important} .ip-ray{opacity:.4} .ip-bgfx{transition:none} }
 @keyframes ip-aurora{0%{transform:translate(0,0) scale(1)}33%{transform:translate(5%,-4%) scale(1.12)}66%{transform:translate(-4%,5%) scale(.94)}100%{transform:translate(0,0) scale(1)}}
 @keyframes ip-spin{to{transform:rotate(360deg)}}
 @keyframes ip-fadeup{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -416,7 +433,43 @@ function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMon
 function isAdminUser(u){ if(!u) return false; var em=(u.email||"").toLowerCase(); return (CFG.ADMIN_EMAILS||[]).indexOf(em)>-1; }
 
 /* ---------- UI atoms ---------- */
-function Bgfx(){ return h("div",{className:"ip-bgfx"},h("div",{className:"ip-blob b1"}),h("div",{className:"ip-blob b2"}),h("div",{className:"ip-blob b3"})); }
+/* AURA — luz da marca INPERSON: brilho que respira, feixes laterais, poça de luz,
+   poeira luminosa (canvas) e parallax pelo cursor. Herda o acento ativo (--ip-accent),
+   respeita prefers-reduced-motion e não pinta na impressão. */
+function _toRGB(hex,fb){ hex=(hex||"").trim().replace("#",""); if(hex.length===3)hex=hex.split("").map(function(c){return c+c;}).join(""); var n=parseInt(hex,16); if(isNaN(n))return fb; return [(n>>16)&255,(n>>8)&255,n&255]; }
+function Bgfx(){
+  var ref=React.useRef(null);
+  useEffect(function(){
+    var host=ref.current; if(!host) return;
+    var canvas=host.querySelector("canvas.ip-parts");
+    var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var accRaw=(getComputedStyle(document.documentElement).getPropertyValue("--ip-accent")||"").trim();
+    var R=_toRGB(accRaw,[116,176,216]).join(","), RL=_toRGB("#BFE0F5",[191,224,245]).join(",");
+    var mx=0,my=0,cmx=0,cmy=0,raf1=0,raf2=0,parts=[];
+    function onMove(e){ mx=(e.clientX/innerWidth-.5)*2; my=(e.clientY/innerHeight-.5)*2; }
+    if(!reduce) addEventListener("pointermove",onMove,{passive:true});
+    function tick(){ cmx+=(mx-cmx)*.06; cmy+=(my-cmy)*.06; if(host) host.style.transform="translate("+(cmx*30)+"px,"+(cmy*24)+"px)"; raf1=requestAnimationFrame(tick); }
+    function size(){ if(!canvas) return; canvas.width=Math.max(1,innerWidth*1.24); canvas.height=Math.max(1,innerHeight*1.24); }
+    function seed(){ if(!canvas) return; var n=Math.round(canvas.width*canvas.height/24000); n=Math.max(28,Math.min(90,n)); parts=[]; for(var i=0;i<n;i++){ parts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.8+.5,vx:(Math.random()-.5)*.2,vy:-(Math.random()*.28+.05),a:Math.random()*.5+.2,z:Math.random()*15+5,ph:Math.random()*6.283}); } }
+    function loop(t){ var ctx=canvas.getContext("2d"); ctx.clearRect(0,0,canvas.width,canvas.height);
+      for(var i=0;i<parts.length;i++){ var p=parts[i]; p.x+=p.vx; p.y+=p.vy;
+        if(p.y<-20){ p.y=canvas.height+20; p.x=Math.random()*canvas.width; }
+        if(p.x<-20)p.x=canvas.width+20; if(p.x>canvas.width+20)p.x=-20;
+        var tw=.65+.35*Math.sin(t/900+p.ph), dx=p.x+cmx*p.z, dy=p.y+cmy*p.z;
+        ctx.beginPath(); ctx.arc(dx,dy,p.r,0,6.283); ctx.fillStyle="rgba("+RL+","+(p.a*tw)+")"; ctx.fill();
+        if(p.r>1.2){ ctx.beginPath(); ctx.arc(dx,dy,p.r*3.1,0,6.283); ctx.fillStyle="rgba("+R+","+(p.a*tw*.12)+")"; ctx.fill(); } }
+      raf2=requestAnimationFrame(loop); }
+    if(canvas&&!reduce){ size(); seed(); addEventListener("resize",size); raf2=requestAnimationFrame(loop); tick(); }
+    else if(canvas){ size(); }
+    return function(){ removeEventListener("pointermove",onMove); removeEventListener("resize",size); if(raf1)cancelAnimationFrame(raf1); if(raf2)cancelAnimationFrame(raf2); if(host)host.style.transform=""; };
+  },[]);
+  return h("div",{className:"ip-bgfx",ref:ref},
+    h("div",{className:"ip-glow"}),
+    h("div",{className:"ip-ray l"},h("i")),
+    h("div",{className:"ip-ray r"},h("i")),
+    h("div",{className:"ip-floor"}),
+    h("canvas",{className:"ip-parts"}));
+}
 function Toast(p){ if(!p.msg) return null; return h("div",{className:cx("toast",p.kind)},p.msg); }
 function statusInfo(st){
   if(st==="concluido") return {cls:"ok",txt:"Concluído"};
