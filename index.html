@@ -561,7 +561,7 @@ function App(){
   function carregar(){
     setLoading(true);
     Promise.all([
-      sb.from("clientes").select("id,nome,segmento,cor_primaria,cor_secundaria,logo").order("ordem"),
+      sb.from("clientes").select("*").order("ordem"),
       sb.from("iso_documentos").select("*").order("ordem"),
       sb.from("iso_registros").select("*").order("criado_em",{ascending:false}),
       sb.from("iso_ativos").select("*").order("ordem"),
