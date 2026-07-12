@@ -1163,7 +1163,9 @@ function RelatorioMensal(p){
       +'<div style="text-align:center;color:#9aa8bd;font-size:11px;margin-top:14px">INPERSON Soluções em Tecnologia · CNPJ 30.715.367/0001-52 · Salvador/BA</div>'
       +'</div>';
     p.flash("Enviando e-mail…");
-    sb.functions.invoke("iso-enviar-email",{body:{to:cliEmail,subject:"Relatório de Conformidade "+ymLabel(comp)+" — "+p.clienteNome,html:html}}).then(function(r){
+    var _mA=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+    var _subjMes=_mA[parseInt(comp.slice(5),10)-1]+"/"+comp.slice(0,4);
+    sb.functions.invoke("iso-enviar-email",{body:{to:cliEmail,subject:"INPERSON | Conformidade da Infraestrutura - "+_subjMes,html:html}}).then(function(r){
       if(r.error||(r.data&&r.data.error)){ p.flash("Falha no e-mail: "+((r.data&&r.data.error)||(r.error&&r.error.message)||"erro"),"err"); }
       else { p.flash("Relatório enviado por e-mail a "+cliEmail+" ✓"); }
     }).catch(function(e){ p.flash("Erro no e-mail: "+String(e),"err"); });
