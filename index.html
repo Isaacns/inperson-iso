@@ -144,7 +144,7 @@ h1,h2,h3{font-weight:300;margin:0}
 .acp-head{text-align:center;margin-bottom:20px;animation:ip-fadeup .5s ease}
 .acp-logo{display:inline-flex}
 .acp-logo img{width:56px;height:56px;border-radius:15px;animation:ip-logopulse 3.2s ease-in-out infinite}
-.acp-live{display:inline-flex;align-items:center;gap:7px;font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--ip-ok);border:1px solid var(--glass-brd);border-radius:99px;padding:5px 12px;margin:14px 0 12px;background:rgba(95,191,143,.08)}
+.acp-live{display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ip-ok);border:1px solid rgba(95,191,143,.4);border-radius:99px;padding:6px 14px;margin:16px 0 0;background:rgba(95,191,143,.1)}
 .acp-live .d{width:7px;height:7px;border-radius:50%;background:var(--ip-ok);box-shadow:0 0 8px var(--ip-ok);animation:ip-blink 1.4s ease-in-out infinite}
 @keyframes ip-blink{0%,100%{opacity:1}50%{opacity:.2}}
 .acp-head h1{font-size:20px;font-weight:300;margin:0;letter-spacing:.2px}
@@ -187,8 +187,8 @@ h1,h2,h3{font-weight:300;margin:0}
 .ip-authbox img.ip-hero{width:auto;height:auto;max-width:172px;border-radius:0;margin:0 auto 16px;display:block;animation:ip-logopulse 3.4s ease-in-out infinite;filter:drop-shadow(0 0 12px rgba(116,176,216,.35))}
 .acp-hero{width:auto;height:auto;max-width:160px;margin:0 auto 8px;display:block;animation:ip-logopulse 3.4s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(116,176,216,.3))}
 /* logo do CLIENTE (chip branco, para marca sobre fundo escuro) */
-.acp-clilogo{display:inline-flex;align-items:center;background:#fff;border-radius:12px;padding:7px 14px;box-shadow:0 8px 22px rgba(0,0,0,.4);margin-bottom:10px;animation:ip-fadeup .5s ease}
-.acp-clilogo img{height:40px;width:auto;max-width:150px;display:block}
+.acp-clilogo{display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:16px;padding:12px 22px;box-shadow:0 10px 30px rgba(0,0,0,.45);margin:0 auto 12px;animation:ip-fadeup .5s ease}
+.acp-clilogo img{height:64px;width:auto;max-width:220px;display:block}
 .acp-rels{max-width:620px;margin:22px auto 0;background:var(--glass-bg,rgba(255,255,255,.03));border:1px solid var(--glass-brd);border-radius:16px;padding:14px 16px}
 .acp-rels-h{font-size:13px;font-weight:600;letter-spacing:.3px;margin-bottom:10px}
 .acp-relrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.06)}
@@ -586,7 +586,7 @@ function App(){
   useEffect(function(){ if(sess){ reloadPerfil(); carregar(); } },[sess]);
 
   var _sp=(typeof location!=="undefined")?new URLSearchParams(location.search):null;
-  var _shareTk=_sp?_sp.get("acompanhar"):null;
+  var _shareTk=_sp?(_sp.get("c")||_sp.get("acompanhar")):null;
   if(_shareTk) return h(React.Fragment,null,h(Bgfx),h(AcompPublico,{token:_shareTk}));
   if(sess===undefined) return h("div",{className:"ip-auth"},h("span",{className:"spin"}));
   if(!sess) return h(React.Fragment,null,h(Bgfx),h(Login,{deferred:defer,clearDefer:function(){ setDefer(null); }}));
@@ -809,10 +809,10 @@ function Clientes(p){
   function abrirArea(c){
     var s=(p.data.share||[]).filter(function(x){return x.cliente_id===c.id;})[0];
     var base=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br");
-    if(s){ window.open(base+"/?acompanhar="+s.token,"_blank"); return; }
+    if(s){ window.open(base+"/?c="+(s.slug||s.token),"_blank"); return; }
     sb.from("acomp_share").insert({cliente_id:c.id,titulo:"Acompanhamento — "+c.nome}).select().then(function(r){
       if(r.error){ p.flash("Erro: "+r.error.message,"err"); return; }
-      if(r.data&&r.data[0]){ window.open(base+"/?acompanhar="+r.data[0].token,"_blank"); p.reload(); }
+      if(r.data&&r.data[0]){ window.open(base+"/?c="+(r.data[0].slug||r.data[0].token),"_blank"); p.reload(); }
     });
   }
 
@@ -946,9 +946,9 @@ function AcompPublico(p){
   return h("div",{className:"acp",style:_sty},
     h("div",{className:"acp-head"},
       _logo?h("div",{className:"acp-clilogo"},h("img",{src:_logo,alt:dados.cliente})):h("img",{src:IP_LOGO,alt:"INPERSON",className:"acp-hero"}),
-      h("div",{className:"acp-live"},h("span",{className:"d"}),"ACOMPANHAMENTO AO VIVO"),
       h("h1",null,dados.titulo),
-      h("div",{className:"acp-sub"},"Acompanhamento em tempo real · por INPERSON Soluções em Tecnologia")),
+      h("div",{className:"acp-sub"},"Acompanhamento em tempo real · por INPERSON Soluções em Tecnologia"),
+      h("div",{className:"acp-live"},h("span",{className:"d"}),"Online · acompanhamento ao vivo")),
     h("div",{className:"acp-prog"},
       h("div",{className:"acp-prog-top"}, h("span",null,stg), h("b",null,pct+"%")),
       h("div",{className:"acp-bar"}, h("i",{style:{width:pct+"%"}}, h("span",{className:"sh"})))),
@@ -1175,16 +1175,16 @@ function RelatorioMensal(p){
     sb.from("iso_relatorios").upsert(payload,{onConflict:"cliente_id,competencia"}).then(function(r){ setSaving(false); if(r.error){p.flash("Erro ao emitir: "+r.error.message,"err");return;} p.flash("Relatório emitido e publicado ao cliente ✓"); p.reload&&p.reload(); }).catch(function(e){ setSaving(false); p.flash("Erro: "+String(e),"err"); });
   }
   function enviarCliente(){
-    var tok=p.shareC&&p.shareC.token;
+    var tok=p.shareC&&(p.shareC.slug||p.shareC.token);
     if(!tok){ p.flash("Gere o link do cliente antes (aba Execução).","err"); return; }
-    var url="https://iso.inpersonaltec.com.br/?acompanhar="+tok;
+    var url="https://iso.inpersonaltec.com.br/?c="+tok;
     var msg="Olá! O Relatório de Conformidade da infraestrutura ("+ymLabel(comp)+") da "+p.clienteNome+" está disponível. Acompanhe e veja o relatório aqui: "+url+"\\n\\n— INPERSON Soluções em Tecnologia";
     window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank","noopener");
   }
   function enviarEmail(){
     if(!cliEmail){ p.flash("Cadastre o e-mail do cliente na aba Clientes.","err"); return; }
-    var tok=p.shareC&&p.shareC.token;
-    var link=tok?("https://iso.inpersonaltec.com.br/?acompanhar="+tok):"";
+    var tok=p.shareC&&(p.shareC.slug||p.shareC.token);
+    var link=tok?("https://iso.inpersonaltec.com.br/?c="+tok):"";
     var SIG="https://iso.inpersonaltec.com.br/assets/email-assinatura.jpg";
     var _rw=function(l,v){ return '<tr><td style="padding:9px 12px;border-bottom:1px solid #eef2f7;color:#41566f;font-size:13.5px">'+l+'</td><td style="padding:9px 12px;border-bottom:1px solid #eef2f7;text-align:right;font-weight:600;color:#0d2440;font-size:13.5px">'+v+'</td></tr>'; };
     var html='<div style="background:#eef2f7;padding:24px 12px;font-family:Segoe UI,Arial,sans-serif">'
@@ -1287,7 +1287,7 @@ function Painel(p){
   var mes=new Date().getMonth()+1;
   var execItens=p.acompC||[];
   var execPct=pctExec(execItens);
-  var execLink=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?acompanhar="+(p.shareC?p.shareC.token:"");
+  var execLink=(typeof location!=="undefined"?location.origin:"https://iso.inpersonaltec.com.br")+"/?c="+(p.shareC?(p.shareC.slug||p.shareC.token):"");
   var _hd=function(iso){ if(!iso) return 0; return (Date.now()-new Date(iso).getTime())/3600000; };
   var chAbertos=(p.chamadosC||[]).filter(function(c){ return c.status==="aberto"||c.status==="andamento"; });
   var chSla=chAbertos.filter(function(c){ return _hd(c.aberto_em)>(c.sla_horas||24); });
