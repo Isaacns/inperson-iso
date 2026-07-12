@@ -612,7 +612,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, relatoriosC:relatoriosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
+  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["rede","📡","Rede (monitor)"],["anexos","📎","Mídias & Anexos"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -626,6 +626,7 @@ function App(){
   else if(view==="matriz") body=h(MatrizEvidencias,ctx);
   else if(view==="historico") body=h(Historico,ctx);
   else if(view==="inventario") body=h(Inventario,ctx);
+  else if(view==="rede") body=h(RedeMonitor,ctx);
   else if(view==="anexos") body=h(Anexos,ctx);
   else if(view==="clientes") body=h(Clientes,ctx);
 
@@ -1369,6 +1370,38 @@ function Inventario(p){
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"}, h("button",{className:"ip-btn ghost sm act",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){ remover(a); }},"✕")))
       ); }):h("tr",null,h("td",{colSpan:8,className:"ip-faint"},"Sem ativos cadastrados.")))
     ))
+  );
+}
+
+/* ---------- Rede — monitor (agente on-site) ---------- */
+function RedeMonitor(p){
+  var s=useState(null), st=s[0], setSt=s[1];
+  var ag=useState(null), agente=ag[0], setAgente=ag[1];
+  function carregar(){ if(!p.clienteId) return;
+    sb.rpc("iso_rede_status",{p_cliente:p.clienteId}).then(function(r){ setSt((r&&!r.error&&r.data)||[]); }).catch(function(){ setSt([]); });
+    sb.from("iso_rede_agentes").select("nome,ultimo_contato,ativo").eq("cliente_id",p.clienteId).maybeSingle().then(function(r){ setAgente((r&&r.data)||null); });
+  }
+  useEffect(function(){ setSt(null); carregar(); var t=setInterval(carregar,60000); return function(){ clearInterval(t); }; },[p.clienteId]);
+  function minDesde(iso){ if(!iso) return 1e9; return (Date.now()-new Date(iso).getTime())/60000; }
+  var alvos=st||[];
+  var internos=alvos.filter(function(a){ return !/8\.8\.8\.8|internet/i.test(a.alvo||""); });
+  var dispGeral=internos.length?Math.round(internos.reduce(function(a,x){return a+(x.disp_30d||0);},0)/internos.length):null;
+  var agenteOn=agente&&agente.ultimo_contato&&minDesde(agente.ultimo_contato)<15;
+  return h("div",null,
+    h(TopBar,{title:"Rede — monitor",sub:"Disponibilidade em tempo real · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
+      right:h("button",{className:"ip-btn ghost sm",onClick:carregar},"↻ Atualizar")}),
+    h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"12px",borderColor:agenteOn?"var(--ip-ok)":"var(--ip-warn)"}},
+      h("div",null, h("div",{className:"ip-sub"},"Disponibilidade média da rede (30 dias)"), h("div",{className:"kpi-big",style:{color:"var(--cli-1,var(--ip-accent))",marginTop:"4px"}}, dispGeral!=null?dispGeral+"%":"—")),
+      h("div",{style:{textAlign:"right"}}, h("div",{className:"ip-faint",style:{fontSize:"11px"}},"Agente on-site"), h("div",{style:{fontWeight:600,color:agenteOn?"var(--ip-ok)":"var(--ip-warn)"}}, agenteOn?"● Online":(agente&&agente.ultimo_contato?"○ Sem contato recente":"○ Nunca conectou")), (agente&&agente.ultimo_contato)?h("div",{className:"ip-faint",style:{fontSize:"10px"}},"últ. contato: "+brDate(agente.ultimo_contato)):null)),
+    st===null?h("div",{className:"ip-muted"},h("span",{className:"spin"})," Carregando…"):
+    (alvos.length?h("div",{className:"grid k3"}, alvos.map(function(a){ var stale=minDesde(a.ultimo)>15; var on=a.up&&!stale;
+      return h("div",{key:a.alvo,className:"ip-card ip-pad"},
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"}}, h("b",{style:{fontSize:"13.5px"}},a.alvo), h("span",{className:"ip-pill",style:{color:on?"var(--ip-ok)":"var(--ip-danger)",borderColor:(on?"var(--ip-ok)":"var(--ip-danger)")+"55",whiteSpace:"nowrap"}}, on?"● Online":(stale?"sem dados":"● Offline"))),
+        h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},a.ip||""),
+        h("div",{style:{display:"flex",gap:"18px",marginTop:"10px"}},
+          h("div",null,h("div",{className:"ip-faint",style:{fontSize:"10px"}},"LATÊNCIA"),h("div",{style:{fontWeight:600}}, a.latencia_ms!=null?(a.latencia_ms+" ms"):"—")),
+          h("div",null,h("div",{className:"ip-faint",style:{fontSize:"10px"}},"DISPON. 30d"),h("div",{style:{fontWeight:600}}, (a.disp_30d!=null?a.disp_30d+"%":"—"))))); }))
+    :h("div",{className:"ip-card ip-pad ip-faint"},"Sem dados ainda. Instale o Agente de Rede na clínica (INPERSON-Agente-Rede.ps1). Assim que ele rodar (a cada 5 min), a disponibilidade dos equipamentos aparece aqui em tempo real."))
   );
 }
 
