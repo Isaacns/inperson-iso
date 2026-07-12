@@ -614,7 +614,7 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, relatoriosC:relatoriosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var NAV=[["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["rede","📡","Rede (monitor)"],["anexos","📎","Mídias & Anexos"],["carteira","💳","Carteira"],["clientes","🏢","Clientes"]];
+  var NAV=[["central","◉","Central de Operações"],["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["rede","📡","Rede (monitor)"],["anexos","📎","Mídias & Anexos"],["carteira","💳","Carteira"],["clientes","🏢","Clientes"]];
   var body;
   if(docView) body=h(DocView,Object.assign({},ctx,{reg:docView}));
   else if(editDoc) body=h(DocEditor,Object.assign({},ctx,{doc:editDoc}));
@@ -630,6 +630,7 @@ function App(){
   else if(view==="inventario") body=h(Inventario,ctx);
   else if(view==="rede") body=h(RedeMonitor,ctx);
   else if(view==="carteira") body=h(Carteira,ctx);
+  else if(view==="central") body=h(Central,ctx);
   else if(view==="anexos") body=h(Anexos,ctx);
   else if(view==="clientes") body=h(Clientes,ctx);
 
@@ -667,6 +668,47 @@ function TopBar(p){
 }
 function docByCode(docs,code){ return docs.filter(function(d){return d.codigo===code;})[0]; }
 function findReg(regs,code,comp){ return regs.filter(function(r){return r.documento_codigo===code&&r.competencia===comp;})[0]; }
+
+/* ---------- Central de Operações (visão consolidada da carteira) ---------- */
+function Central(p){
+  var comp=nowYM();
+  var clientes=p.data.clientes||[], contratos=p.data.contratos||[], faturas=p.data.faturas||[], chamados=p.data.chamados||[], acomp=p.data.acomp||[];
+  function brl(n){ return "R$ "+(Number(n||0)).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  var ativos=contratos.filter(function(c){ return c.status==="ativo"; });
+  var mrr=ativos.reduce(function(a,c){ return a+Number(c.valor_mensal||0); },0);
+  var fatMes=faturas.filter(function(f){ return f.competencia===comp; });
+  var recebido=fatMes.filter(function(f){ return f.status==="pago"; }).reduce(function(a,f){ return a+Number(f.valor||0); },0);
+  var aReceber=fatMes.filter(function(f){ return f.status!=="pago"&&f.status!=="cancelado"; }).reduce(function(a,f){ return a+Number(f.valor||0); },0);
+  var atrasadas=faturas.filter(function(f){ return f.status==="atrasado"; });
+  var inadimplencia=atrasadas.reduce(function(a,f){ return a+Number(f.valor||0); },0);
+  var chAbertos=chamados.filter(function(c){ return c.status==="aberto"||c.status==="andamento"; });
+  function cliMRR(id){ return ativos.filter(function(c){return c.cliente_id===id;}).reduce(function(a,c){return a+Number(c.valor_mensal||0);},0); }
+  function cliCh(id){ return chamados.filter(function(c){return c.cliente_id===id&&(c.status==="aberto"||c.status==="andamento");}).length; }
+  function cliExec(id){ var it=acomp.filter(function(a){return a.cliente_id===id;}); return it.length?pctExec(it):null; }
+  function cliAtraso(id){ return faturas.filter(function(f){return f.cliente_id===id&&f.status==="atrasado";}).length; }
+  var carteira=clientes.filter(function(c){ return ativos.some(function(x){return x.cliente_id===c.id;}) || acomp.some(function(a){return a.cliente_id===c.id;}); });
+  function abrir(id){ p.setClienteId(id); p.setView("painel"); }
+  function kcard(l,v,cor,sub){ return h("div",{className:"ip-card ip-pad",style:{flex:1,minWidth:"150px"}}, h("div",{className:"ip-sub"},l), h("div",{className:"kpi-big",style:{color:cor||"var(--ip-accent)",marginTop:"4px",fontSize:"23px"}},v), sub?h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},sub):null); }
+  return h("div",null,
+    h("div",{className:"ip-topbar ip-noprint"}, h("div",null,h("div",{className:"ip-h1"},"Central de Operações"),h("div",{className:"ip-sub"},"Visão consolidada da carteira · "+ymLabel(comp)))),
+    h("div",{style:{display:"flex",gap:"12px",marginBottom:"14px",flexWrap:"wrap"}},
+      kcard("MRR — recorrente",brl(mrr),"var(--ip-ok)",Object.keys(ativos.reduce(function(m,c){m[c.cliente_id]=1;return m;},{})).length+" clientes ativos"),
+      kcard("Recebido no mês",brl(recebido),"var(--ip-ok)"),
+      kcard("A receber",brl(aReceber),"var(--ip-warn)"),
+      kcard("Inadimplência",brl(inadimplencia),inadimplencia>0?"var(--ip-danger)":"var(--ip-ok)",atrasadas.length+" fatura(s) atrasada(s)"),
+      kcard("Chamados abertos",String(chAbertos.length),chAbertos.length?"var(--ip-accent)":"var(--ip-ok)")),
+    h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
+      h("thead",null,h("tr",null,h("th",null,"Cliente"),h("th",null,"MRR"),h("th",null,"Financeiro"),h("th",null,"Chamados"),h("th",null,"Execução"),h("th",{className:"col-acoes"},""))),
+      h("tbody",null, carteira.length?carteira.map(function(c){ var atr=cliAtraso(c.id); var ex=cliExec(c.id); var ch=cliCh(c.id); return h("tr",{key:c.id},
+        h("td",null,h("b",null,c.nome)),
+        h("td",null,brl(cliMRR(c.id))),
+        h("td",null, atr?h("span",{className:"ip-pill",style:{color:"var(--ip-danger)"}},"atrasado · "+atr):h("span",{className:"ip-pill",style:{color:"var(--ip-ok)"}},"em dia")),
+        h("td",null, ch?h("span",{className:"ip-pill",style:{color:"var(--ip-accent)"}},ch):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—")),
+        h("td",null, ex!=null?(ex+"%"):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—")),
+        h("td",{className:"col-acoes"},h("button",{className:"ip-btn ghost sm act",onClick:function(){abrir(c.id);}},"Abrir →"))); }):h("tr",null,h("td",{colSpan:6,className:"ip-faint"},"Sem clientes na carteira ainda.")))
+    ))
+  );
+}
 
 /* ---------- Carteira & Financeiro (Central de Operações) ---------- */
 function Carteira(p){
