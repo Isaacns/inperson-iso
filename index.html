@@ -1214,6 +1214,10 @@ function RelatorioMensal(p){
       else { p.flash("Relatório enviado por e-mail a "+cliEmail+" ✓"); }
     }).catch(function(e){ p.flash("Erro no e-mail: "+String(e),"err"); });
   }
+  var mostra=!!(p.shareC&&p.shareC.mostrar_relatorios);
+  function toggleMostrar(){ if(!p.shareC){ p.flash("Gere o link do cliente antes (aba Execução).","err"); return; }
+    var nv=!mostra;
+    sb.from("acomp_share").update({mostrar_relatorios:nv}).eq("cliente_id",p.clienteId).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash(nv?"Relatórios agora VISÍVEIS ao cliente ✓":"Relatórios OCULTOS do cliente"); p.reload&&p.reload(); }); }
 
   return h("div",null,
     h("div",{className:"ip-topbar ip-noprint"},
@@ -1223,7 +1227,8 @@ function RelatorioMensal(p){
         h("button",{className:"ip-btn ghost",onClick:function(){ window.print(); }},"⎙ PDF"),
         h("button",{className:"ip-btn",disabled:saving,onClick:emitir}, saving?"Emitindo…":(emitido?"↻ Reemitir & publicar":"✓ Emitir & publicar ao cliente")),
         h("button",{className:"ip-btn ghost",onClick:enviarCliente,title:"Abrir WhatsApp com o link do cliente"},"➤ WhatsApp"),
-        h("button",{className:"ip-btn ghost",onClick:enviarEmail,title:cliEmail?("Enviar por e-mail para "+cliEmail):"Cadastre o e-mail do cliente"},"✉ E-mail ao cliente"))),
+        h("button",{className:"ip-btn ghost",onClick:enviarEmail,title:cliEmail?("Enviar por e-mail para "+cliEmail):"Cadastre o e-mail do cliente"},"✉ E-mail ao cliente"),
+        h("button",{className:"ip-btn"+(mostra?"":" ghost"),onClick:toggleMostrar,title:"Controla se a seção de relatórios aparece na área do cliente"}, mostra?"👁 Visível ao cliente":"🚫 Oculto do cliente"))),
     emitido?h("div",{className:"ip-card ip-pad ip-noprint",style:{marginBottom:"14px",borderColor:"var(--ip-ok,#3fb950)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}},
       h("div",null,h("b",null,"✓ Publicado na área do cliente"),h("div",{className:"ip-faint",style:{fontSize:"12px"}},(emitido.numero||"")+" · emitido em "+brDate(emitido.emitido_em)+" · o André vê este relatório no link de acompanhamento")),
       h("span",{className:"ip-pill"},"visível ao cliente")):null,
