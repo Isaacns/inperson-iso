@@ -377,7 +377,7 @@ html,body{overflow-x:clip}
 .ip-sheet-i.on{border-color:var(--ip-accent);color:var(--ip-text);background:rgba(116,176,216,.12)}
 
 /* 6. Cabeçalho, KPIs e grids: número grande não pode quebrar o card */
-@media(max-width:560px){
+@media(max-width:820px){
   .ip-h1{font-size:20px}
   .ip-topbar{gap:10px;margin-bottom:16px}
   .kpi-big{font-size:clamp(20px,6.5vw,30px)}
@@ -387,42 +387,47 @@ html,body{overflow-x:clip}
 }
 
 /* 7. Tabela vira LISTA — é isto que impede a página de andar de lado.
-   As tabelas do cockpit têm 6–7 colunas e não cabem em 360px. Apertar fonte
-   só adiaria o problema. Onde o td traz data-l, o rótulo aparece à esquerda
-   e o valor à direita; onde não traz, a linha apenas empilha (conteúdo
-   principal, que já se explica sozinho). */
-@media(max-width:560px){
+   REGRA DO BREAKPOINT: 820px, o MESMO ponto em que a sidebar some e a barra
+   inferior entra. "Sem sidebar = tabela é lista." Já erramos isto uma vez:
+   estava em 560px e o celular do Isaac reporta ~591px de viewport, então a
+   barra aparecia mas a tabela continuava tabela — colunas espremidas com uma
+   letra por linha. Não amarrar este número ao da navegação cria essa fresta.
+   Onde o td traz data-l, o rótulo aparece à esquerda e o valor à direita;
+   onde não traz, a linha apenas empilha (conteúdo principal, que se explica). */
+@media(max-width:820px){
   .ip-tbl{display:block;width:100%;font-size:13px}
   .ip-tbl thead{display:none}
   .ip-tbl tbody,.ip-tbl tfoot,.ip-tbl tr{display:block;width:100%}
   .ip-tbl tr{padding:12px 0;border-bottom:1px solid var(--ip-border)}
   .ip-tbl tr:last-child{border-bottom:none}
   .ip-tbl tr:hover td{background:none}
-  .ip-tbl td{border:none;padding:3px 0;overflow-wrap:anywhere}
+  .ip-tbl td{border:none;padding:3px 0;overflow-wrap:anywhere;white-space:normal}
   .ip-tbl td[data-l]{display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:right}
   .ip-tbl td[data-l]::before{content:attr(data-l);flex:none;font-size:10.5px;letter-spacing:.5px;
     text-transform:uppercase;color:var(--ip-faint);text-align:left;font-weight:500}
-  .ip-tbl td.col-acoes{padding-top:10px}
+  /* col-acoes tem text-align:right + white-space:nowrap no desktop; empilhado
+     isso jogava os botões para a direita e forçava largura. */
+  .ip-tbl td.col-acoes{padding-top:10px;text-align:left;white-space:normal}
   .ip-tbl .ip-actions{justify-content:flex-start;flex-wrap:wrap;width:100%}
   .ip-tbl tfoot tr{border-top:1px solid var(--glass-brd);border-bottom:none}
 }
 
 /* 8. Linhas de execução: status vai para baixo, lado a lado com as ações */
-@media(max-width:560px){
+@media(max-width:820px){
   .exec-row{flex-direction:column;gap:10px;padding:12px 13px}
   .exec-row > div:last-child{flex-direction:row!important;align-items:center!important;
     width:100%;justify-content:space-between!important}
 }
 
 /* 9. Modais colados no fundo (alcance do polegar) */
-@media(max-width:560px){
+@media(max-width:820px){
   .ip-modal-bg{display:flex;align-items:flex-end;padding:0}
   .ip-modal{max-width:100%;border-radius:20px 20px 0 0;
     padding-bottom:calc(22px + env(safe-area-inset-bottom))}
 }
 
 /* 10. Gráfico de 12 meses: barras finas para o ano inteiro caber sem rolagem */
-@media(max-width:560px){
+@media(max-width:820px){
   .fin-chart{gap:3px;height:126px}
   .fin-bars{height:104px;gap:1px}
   .fin-bar{width:6px}
@@ -430,7 +435,7 @@ html,body{overflow-x:clip}
 }
 
 /* 11. Área do cliente (André): blocos empilham em vez de espremer */
-@media(max-width:560px){
+@media(max-width:820px){
   .acp-cts,.acp-rels{padding:13px}
   .acp-drow{flex-direction:column;gap:5px}
   .acp-dside{text-align:left}
@@ -1125,10 +1130,10 @@ function Clientes(p){
       h("thead",null,h("tr",null,h("th",null,"Cliente"),h("th",null,"Segmento"),h("th",null,"Cidade"),h("th",null,"Docs ISO"),h("th",null,"Evidências"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, p.data.clientes.map(function(c){ var nd=docsPor[c.id]||0; return h("tr",{key:c.id,style:c.id===p.clienteId?{background:"rgba(116,176,216,.06)"}:null},
         h("td",null,h("b",null,c.nome),c.id===p.clienteId?h("span",{className:"bdg ok",style:{marginLeft:"8px"}},"ativo"):null),
-        h("td",{className:"ip-muted"},c.segmento||"—"),
-        h("td",{className:"ip-muted"},c.cidade||"—"),
-        h("td",null, nd?h("span",{className:"ip-pill"},nd):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—")),
-        h("td",{className:"ip-muted"},regsPor[c.id]||0),
+        h("td",{className:"ip-muted","data-l":"Segmento"},c.segmento||"—"),
+        h("td",{className:"ip-muted","data-l":"Cidade"},c.cidade||"—"),
+        h("td",{"data-l":"Docs ISO"}, nd?h("span",{className:"ip-pill"},nd):h("span",{className:"ip-faint",style:{fontSize:"11px"}},"—")),
+        h("td",{className:"ip-muted","data-l":"Evidências"},regsPor[c.id]||0),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
           h("button",{className:"ip-btn ghost sm act",onClick:function(){ setEdit(c); setF(Object.assign(blank(),{nome:c.nome,segmento:c.segmento||"",cidade:c.cidade||"",contato:c.contato||"",email:c.email||"",obs:c.obs||"",status:c.status||"ativo"})); }},"Editar"),
           h("button",{className:"ip-btn ghost sm act",title:"Abrir a área de acompanhamento do cliente",onClick:function(){ abrirArea(c); }},"↗ Área do cliente"),
@@ -1814,10 +1819,10 @@ function Documentos(p){
           return h("tr",{key:d.id},
             h("td",null,h("b",{className:"tbl-codigo"},d.codigo), d.drive_url?h("a",{href:d.drive_url,target:"_blank",rel:"noopener",title:"Documento oficial no Google Drive",style:{marginLeft:"6px",textDecoration:"none"}},"📎"):null),
             h("td",null,d.titulo),
-            h("td",{className:"ip-muted"},d.tipo),
-            h("td",{className:"ip-muted"},freqLabel(d.frequencia)),
-            h("td",{className:"ip-muted"},d.revisao),
-            h("td",null,h(Badge,{cls:d.status==="vigente"?"ok":"dim",txt:d.status})),
+            h("td",{className:"ip-muted","data-l":"Tipo"},d.tipo),
+            h("td",{className:"ip-muted","data-l":"Frequência"},freqLabel(d.frequencia)),
+            h("td",{className:"ip-muted","data-l":"Rev."},d.revisao),
+            h("td",{"data-l":"Status"},h(Badge,{cls:d.status==="vigente"?"ok":"dim",txt:d.status})),
             h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"},
               form?h("button",{className:"ip-btn sm act",onClick:function(){ var fq=freqDoc(d); var c=fq==="semestral"?lastSemestres(1)[0]:(fq==="ocorrencia"?todayISO():nowYM()); p.setEditing({codigo:d.codigo,competencia:c,reg:fq==="ocorrencia"?null:findReg(p.regsC,d.codigo,c)}); }},f==="ocorrencia"?"Novo registro":"Preencher")
               :(d.codigo==="INV-ATI-001"?h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setView("inventario"); }},"Abrir inventário")
@@ -1912,7 +1917,7 @@ function Inventario(p){
     h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
       h("thead",null,h("tr",null,h("th",null,"Categoria"),h("th",null,"Descrição"),h("th",null,"Marca/Modelo"),h("th",null,"Série"),h("th",null,"Local"),h("th",null,"Etiqueta"),h("th",null,"Qtd"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, p.ativosC.length?p.ativosC.map(function(a){ return h("tr",{key:a.id},
-        h("td",{className:"ip-muted"},a.categoria),h("td",null,a.descricao),h("td",{className:"ip-muted"},a.marca_modelo||"—"),h("td",{className:"ip-muted"},a.numero_serie||"—"),h("td",{className:"ip-muted"},a.localizacao||"—"),h("td",{className:"ip-muted"},a.etiqueta||"—"),h("td",null,a.quantidade||1),
+        h("td",{className:"ip-muted","data-l":"Categoria"},a.categoria),h("td",null,h("b",null,a.descricao)),h("td",{className:"ip-muted","data-l":"Marca/Modelo"},a.marca_modelo||"—"),h("td",{className:"ip-muted","data-l":"Série"},a.numero_serie||"—"),h("td",{className:"ip-muted","data-l":"Local"},a.localizacao||"—"),h("td",{className:"ip-muted","data-l":"Etiqueta"},a.etiqueta||"—"),h("td",{"data-l":"Qtd"},a.quantidade||1),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"}, h("button",{className:"ip-btn ghost sm act",onClick:function(){ open(a); }},"Editar"), h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){ remover(a); }},"✕")))
       ); }):h("tr",null,h("td",{colSpan:8,className:"ip-faint"},"Sem ativos cadastrados.")))
     ))
@@ -2012,11 +2017,11 @@ function Chamados(p){
       h("thead",null,h("tr",null,h("th",null,"Nº"),h("th",null,"Chamado"),h("th",null,"Prioridade"),h("th",null,"Status"),h("th",null,"Aberto há"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, lista.length?lista.map(function(c){ var pr=priInfo(c.prioridade); var aberto=(c.status==="aberto"||c.status==="andamento"); var estr=aberto&&horasDesde(c.aberto_em)>(c.sla_horas||24);
         return h("tr",{key:c.id},
-          h("td",{className:"ip-muted",style:{whiteSpace:"nowrap"}},c.numero||"—"),
+          h("td",{className:"ip-muted","data-l":"Nº"},c.numero||"—"),
           h("td",null, h("div",{style:{fontWeight:500}},c.titulo), h("div",{className:"ip-faint",style:{fontSize:"11px"}},(c.categoria||"")+" · "+(c.canal||"")+(c.solicitante?(" · "+c.solicitante):""))),
-          h("td",null, h("span",{className:"ip-pill",style:{color:pr[2],borderColor:pr[2]+"55"}},pr[1])),
-          h("td",null, h("span",{className:"ip-pill",style:aberto?{}:{opacity:.7}},stInfo(c.status)[1]), estr?h("span",{className:"ip-pill",style:{color:"#E5484D",borderColor:"#E5484D55",marginLeft:"6px"}},"SLA!"):null),
-          h("td",{className:"ip-muted",style:{whiteSpace:"nowrap"}}, c.resolvido_em?("resolvido "+humano(horasDesde(c.resolvido_em))+" atrás"):humano(horasDesde(c.aberto_em))),
+          h("td",{"data-l":"Prioridade"}, h("span",{className:"ip-pill",style:{color:pr[2],borderColor:pr[2]+"55"}},pr[1])),
+          h("td",{"data-l":"Status"}, h("span",{className:"ip-pill",style:aberto?{}:{opacity:.7}},stInfo(c.status)[1]), estr?h("span",{className:"ip-pill",style:{color:"#E5484D",borderColor:"#E5484D55",marginLeft:"6px"}},"SLA!"):null),
+          h("td",{className:"ip-muted","data-l":"Aberto há"}, c.resolvido_em?("resolvido "+humano(horasDesde(c.resolvido_em))+" atrás"):humano(horasDesde(c.aberto_em))),
           h("td",{className:"col-acoes"}, h("div",{className:"ip-actions"},
             c.status==="aberto"?h("button",{className:"ip-btn ghost sm act",onClick:function(){mudar(c,"andamento");}},"▶ Atender"):null,
             (c.status==="aberto"||c.status==="andamento")?h("button",{className:"ip-btn sm act",onClick:function(){mudar(c,"resolvido");}},"✓ Resolver"):null,
@@ -2074,11 +2079,11 @@ function Historico(p){
       h("thead",null,h("tr",null,h("th",null,"Documento"),h("th",null,"Período"),h("th",null,"Nº"),h("th",null,"Status"),h("th",null,"Responsável"),h("th",null,"Concluído"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, regs.length?regs.map(function(r){ var si=statusInfo(r.status); var dd=docByCode(p.docsC,r.documento_codigo)||{}; return h("tr",{key:r.id},
         h("td",null,h("b",null,r.documento_codigo),h("div",{className:"ip-faint",style:{fontSize:"11px"}},dd.titulo||"")),
-        h("td",null,r.competencia?compLabel(r.competencia):"—"),
-        h("td",null,r.numero||"—"),
-        h("td",null,h(Badge,si)),
-        h("td",{className:"ip-muted"},r.responsavel||"—"),
-        h("td",{className:"ip-muted"},r.concluido_em?brDate(r.concluido_em):"—"),
+        h("td",{"data-l":"Período"},r.competencia?compLabel(r.competencia):"—"),
+        h("td",{"data-l":"Nº"},r.numero||"—"),
+        h("td",{"data-l":"Status"},h(Badge,si)),
+        h("td",{className:"ip-muted","data-l":"Responsável"},r.responsavel||"—"),
+        h("td",{className:"ip-muted","data-l":"Concluído"},r.concluido_em?brDate(r.concluido_em):"—"),
         h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
           h("button",{className:"ip-btn ghost sm act",onClick:function(){ p.setEditing({codigo:r.documento_codigo,competencia:r.competencia,reg:r}); }},"Editar"),
           h("button",{className:"ip-btn sm act",onClick:function(){ p.setDocView(r); }},"Ver / PDF"),
