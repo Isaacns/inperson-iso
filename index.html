@@ -783,6 +783,10 @@ function App(){
   var de=useState(null), editDoc=de[0], setEditDoc=de[1];
   var lk=useState(false), locked=lk[0], setLocked=lk[1];
   var ins=useState(null), defer=ins[0], setDefer=ins[1];
+  /* Hook da navegação mobile: precisa ficar AQUI, com os demais.
+     Se descer para perto do NAV (depois dos returns de login/lock/link público),
+     a contagem de hooks muda entre renders e o React derruba o app (erro #310). */
+  var mn=useState(false), navOpen=mn[0], setNavOpen=mn[1];
 
   function flash(msg,kind){ setToast({msg:msg,kind:kind||"ok"}); setTimeout(function(){ setToast(null); },2600); }
 
@@ -855,7 +859,6 @@ function App(){
   var ctx={ data:data, docsC:docsC, regsC:regsC, ativosC:ativosC, acompC:acompC, shareC:shareC, chamadosC:chamadosC, relatoriosC:relatoriosC, clienteId:clienteId, clienteNome:clienteNome, setClienteId:setClienteId, clientesISO:clientesISO,
     flash:flash, reload:carregar, setView:setView, setEditing:setEditing, setDocView:setDocView, setEditDoc:setEditDoc, user:sess.user, perfil:perfil };
 
-  var mn=useState(false), navOpen=mn[0], setNavOpen=mn[1];
   function go(k){ setDocView(null); setEditing(null); setEditDoc(null); setView(k); setNavOpen(false); }
   var NAV=[["central","◉","Central de Operações"],["painel","◔","Painel"],["execucao","◎","Execução"],["chamados","🎧","Atendimento"],["documentos","▤","Documentos"],["evidencias","✎","Preencher evidência"],["relatorio","◈","Relatório do mês"],["matriz","⊞","Matriz de Evidências"],["historico","🗄","Histórico"],["inventario","⊟","Inventário"],["rede","📡","Rede (monitor)"],["anexos","📎","Mídias & Anexos"],["carteira","💳","Carteira"],["clientes","🏢","Clientes"]];
   var body;
