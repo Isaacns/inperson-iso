@@ -1014,6 +1014,14 @@ function Execucao(p){
         setDForm(dBlank()); setDAdd(false); p.flash("Despesa registrada ✓"); }); }
   function dPatch(id,campo){ setDesp(function(l){ return l.map(function(x){ return x.id===id?Object.assign({},x,campo):x; }); });
     sb.from("acomp_despesas").update(campo).eq("id",id).then(function(r){ if(r.error){ p.flash("Erro: "+r.error.message,"err"); carregarDesp(); } }); }
+  var de=useState(null), dEditId=de[0], setDEditId=de[1];
+  var dfe=useState(dBlank()), dEdf=dfe[0], setDEdf=dfe[1];
+  function abrirDEdit(d){ setDEditId(d.id); setDEdf({item:d.item||"",quantidade:String(d.quantidade||1),valor:String(d.valor||0),descricao:d.descricao||"",data:(d.data||"").slice(0,10)}); }
+  function dEup(k,v){ var o={}; o[k]=v; setDEdf(Object.assign({},dEdf,o)); }
+  function salvarDEdit(){ if(!dEdf.item.trim()){ p.flash("Descreva o item da despesa.","err"); return; }
+    var campo={item:dEdf.item.trim(),quantidade:Number(dEdf.quantidade||1),valor:Number(dEdf.valor||0),descricao:dEdf.descricao||null};
+    if(dEdf.data) campo.data=dEdf.data;
+    dPatch(dEditId,campo); setDEditId(null); p.flash("Despesa atualizada ✓"); }
   function delDesp(d){ if(!window.confirm("Excluir a despesa \""+d.item+"\"?")) return;
     sb.from("acomp_despesas").delete().eq("id",d.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} setDesp(function(l){ return l.filter(function(x){ return x.id!==d.id; }); }); }); }
   var despTotal=desp.reduce(function(a,d){ return a+Number(d.quantidade||0)*Number(d.valor||0); },0);
@@ -1110,7 +1118,19 @@ function Execucao(p){
           h("button",{className:"ip-btn ghost",onClick:function(){ setDAdd(false); }},"Cancelar"))):null,
       desp.length?h("table",{className:"ip-tbl"},
         h("thead",null,h("tr",null,h("th",null,"Data"),h("th",null,"Item"),h("th",null,"Qtd"),h("th",null,"Valor un."),h("th",null,"Subtotal"),h("th",null,"Situação"),h("th",{className:"col-acoes"},"Ações"))),
-        h("tbody",null, desp.map(function(d){ var sub=Number(d.quantidade||0)*Number(d.valor||0); return h("tr",{key:d.id},
+        h("tbody",null, desp.map(function(d){ var sub=Number(d.quantidade||0)*Number(d.valor||0);
+          if(dEditId===d.id) return h("tr",{key:d.id},h("td",{colSpan:7},
+            h("div",{style:{padding:"6px 0"}},
+              h("div",{className:"grid k4"},
+                h(Field,{label:"Data"}, h("input",{className:"ip-input",type:"date",value:dEdf.data||"",onChange:function(e){dEup("data",e.target.value);}})),
+                h(Field,{label:"Item"}, h("input",{className:"ip-input",value:dEdf.item,onChange:function(e){dEup("item",e.target.value);}})),
+                h(Field,{label:"Quantidade"}, h("input",{className:"ip-input",type:"number",step:"1",min:"1",value:dEdf.quantidade,onChange:function(e){dEup("quantidade",e.target.value);}})),
+                h(Field,{label:"Valor unitário (R$)"}, h("input",{className:"ip-input",type:"number",step:"0.01",value:dEdf.valor,onChange:function(e){dEup("valor",e.target.value);}}))),
+              h(Field,{label:"Descrição"}, h("input",{className:"ip-input",value:dEdf.descricao,onChange:function(e){dEup("descricao",e.target.value);}})),
+              h("div",{style:{display:"flex",gap:"8px",marginTop:"4px"}},
+                h("button",{className:"ip-btn sm",onClick:salvarDEdit},"Salvar"),
+                h("button",{className:"ip-btn ghost sm",onClick:function(){ setDEditId(null); }},"Cancelar")))));
+          return h("tr",{key:d.id},
           h("td",{className:"ip-muted",style:{fontSize:"12px"}},brDate(d.data)),
           h("td",null,h("b",null,d.item), d.descricao?h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},d.descricao):null),
           h("td",{className:"ip-muted"},d.quantidade),
@@ -1119,6 +1139,7 @@ function Execucao(p){
           h("td",null,h("button",{className:cx("bdg",d.status==="reembolsado"?"ok":"warn"),style:{cursor:"pointer",border:"none",fontSize:"11px"},title:"Clique para alternar",onClick:function(){ dPatch(d.id,{status:d.status==="reembolsado"?"pendente":"reembolsado"}); }}, d.status==="reembolsado"?"Reembolsado ✓":"Pendente")),
           h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
             h("button",{className:"ip-btn ghost sm act",title:"Controla se aparece na área do cliente",onClick:function(){ dPatch(d.id,{publicado:!d.publicado}); }}, d.publicado?"👁 Visível":"🚫 Oculto"),
+            h("button",{className:"ip-btn ghost sm iconbtn",title:"Editar despesa",onClick:function(){ abrirDEdit(d); }},"✎"),
             h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir despesa",onClick:function(){ delDesp(d); }},"✕")))); })),
         h("tfoot",null,h("tr",null,h("td",{colSpan:4,style:{textAlign:"right",fontWeight:600}},"Total"),h("td",null,h("b",{style:{color:"var(--ip-accent)"}},brl(despTotal))),h("td",{colSpan:2})))
       ):h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Nenhuma despesa registrada. Use \"+ Despesa\" para lançar materiais comprados durante a execução.")
