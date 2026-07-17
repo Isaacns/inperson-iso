@@ -336,6 +336,19 @@ html,body{overflow-x:clip}
    página inteira, brigando com o nosso (que só rebusca os dados). */
 body{overscroll-behavior-y:contain}
 
+/* Aviso de versão nova (aparece por cima de tudo, inclusive da barra inferior) */
+.ip-update{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+  z-index:70;transform:translateY(140%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+  padding:14px 16px;min-height:48px;border-radius:14px;cursor:pointer;font-family:inherit;
+  font-size:13.5px;font-weight:500;color:#03101c;border:none;
+  background:linear-gradient(135deg,var(--ip-accent),var(--ip-accent-2));
+  box-shadow:0 12px 34px rgba(0,0,0,.55)}
+.ip-update.on{transform:translateY(0)}
+.ip-update b{font-weight:700}
+.ip-update:disabled{opacity:.75;cursor:default}
+@media(max-width:820px){ .ip-update{bottom:calc(76px + env(safe-area-inset-bottom))} } /* acima da barra */
+@media(min-width:821px){ .ip-update{left:auto;right:20px;max-width:380px} }
+
 /* Indicador do "arrastar para atualizar" */
 .ip-ptr{position:fixed;top:0;left:50%;margin-left:-18px;z-index:47;pointer-events:none;will-change:transform}
 .ip-ptr.busy{transition:transform .22s ease}
@@ -894,10 +907,52 @@ function App(){
     var sub=sb.auth.onAuthStateChange(function(_e,s){ setSess(s); });
     function onBip(e){ e.preventDefault(); setDefer(e); }
     window.addEventListener("beforeinstallprompt",onBip);
+    /* ---------- Atualização do app (padrão VIZIO Money) ----------
+       O bug que isto corrige: o ISO só chamava reg.update() no registro
+       inicial. No atalho da tela inicial o app RETOMA do background em vez de
+       abrir do zero, então esse código nunca rodava de novo e a versão nova
+       nunca era procurada — o Isaac ficava com a antiga mesmo fechando e
+       reabrindo. O gatilho que faltava é procurar ao voltar para o foco. */
     if("serviceWorker" in navigator){
+      var _reg=null, _avisou=false;
+      function avisarNovaVersao(){
+        if(_avisou) return; _avisou=true;
+        var b=document.createElement("button");
+        b.className="ip-update";
+        b.innerHTML='✨ Nova versão do Qualidade ISO — <b>tocar para atualizar</b>';
+        b.onclick=function(){
+          try{ sessionStorage.setItem("ip_atualizou","1"); }catch(x){}
+          try{ if(_reg&&_reg.waiting) _reg.waiting.postMessage({type:"PULAR_ESPERA"}); }catch(x){}
+          b.textContent="Atualizando…"; b.disabled=true;
+          setTimeout(function(){ location.reload(); },1200); /* rede de segurança */
+        };
+        document.body.appendChild(b);
+        requestAnimationFrame(function(){ b.classList.add("on"); });
+      }
       var _hadCtrl=!!navigator.serviceWorker.controller, _refreshing=false;
-      navigator.serviceWorker.addEventListener("controllerchange",function(){ if(_refreshing)return; _refreshing=true; if(_hadCtrl) location.reload(); });
-      navigator.serviceWorker.register("./sw.js").then(function(reg){ try{ reg.update(); }catch(x){} }).catch(function(){});
+      navigator.serviceWorker.addEventListener("controllerchange",function(){
+        if(_refreshing)return; _refreshing=true; if(_hadCtrl) location.reload();
+      });
+      navigator.serviceWorker.register("./sw.js").then(function(reg){
+        _reg=reg;
+        /* versão nova já instalada numa visita anterior, parada esperando */
+        if(reg.waiting && navigator.serviceWorker.controller) avisarNovaVersao();
+        reg.addEventListener("updatefound",function(){
+          var novo=reg.installing; if(!novo) return;
+          novo.addEventListener("statechange",function(){
+            /* 'installed' + já existe controller = ATUALIZAÇÃO, não 1ª instalação */
+            if(novo.state==="installed" && navigator.serviceWorker.controller) avisarNovaVersao();
+          });
+        });
+        try{ reg.update(); }catch(x){}
+        document.addEventListener("visibilitychange",function(){
+          if(document.visibilityState==="visible" && _reg){ try{ _reg.update(); }catch(x){} }
+        });
+        window.addEventListener("online",function(){ if(_reg){ try{ _reg.update(); }catch(x){} } });
+      }).catch(function(){ /* sem SW o app funciona igual, só perde o offline */ });
+      /* confirmação depois do reload: fecha o ciclo para o usuário */
+      try{ if(sessionStorage.getItem("ip_atualizou")){ sessionStorage.removeItem("ip_atualizou");
+        setTimeout(function(){ flash("Você está atualizado ✓"); },600); } }catch(x){}
     }
     return function(){ window.removeEventListener("beforeinstallprompt",onBip); if(sub&&sub.data&&sub.data.subscription) sub.data.subscription.unsubscribe(); };
   },[]);
