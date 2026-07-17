@@ -152,6 +152,13 @@ h1,h2,h3{font-weight:300;margin:0}
 /* acompanhamento / execução */
 .prog{height:9px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
 .prog i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cli-2),var(--cli-1));transition:width .4s ease}
+/* Bloco lateral de cabeçalho de card: à direita no desktop; no celular alinha
+   à esquerda e ocupa a linha toda. Sem isto ele quebra a linha e fica
+   "flutuando" na direita, desconectado do resto — foi o defeito que o Isaac
+   viu no bloco do link da Execução. Classe única para não repetir o erro. */
+.hdr-side{text-align:right}
+@media(max-width:820px){ .hdr-side{text-align:left;width:100%} }
+
 /* Bloco do link do cliente (aba Execução) */
 .exec-link{text-align:right}
 .exec-link-row{display:flex;gap:8px;margin-top:6px;align-items:center}
@@ -501,7 +508,12 @@ body{overscroll-behavior-y:contain}
      isso jogava os botões para a direita e forçava largura. */
   .ip-tbl td.col-acoes{padding-top:10px;text-align:left;white-space:normal}
   .ip-tbl .ip-actions{justify-content:flex-start;flex-wrap:wrap;width:100%}
-  .ip-tbl tfoot tr{border-top:1px solid var(--glass-brd);border-bottom:none}
+  /* O rodapé usa colSpan, que deixa de existir no modo lista: sem isto o
+     "Total" e o valor viravam duas linhas soltas, com uma célula vazia. */
+  .ip-tbl tfoot tr{border-top:1px solid var(--glass-brd);border-bottom:none;
+    display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 0}
+  .ip-tbl tfoot td{padding:0;text-align:left!important}
+  .ip-tbl tfoot td:empty{display:none}
 }
 
 /* 8. Linhas de execução: status vai para baixo, lado a lado com as ações */
@@ -1617,7 +1629,7 @@ function Execucao(p){
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"12px",flexWrap:"wrap",marginBottom:"12px"}},
         h("div",{className:"ip-faint",style:{fontSize:"11.5px",maxWidth:"520px",lineHeight:"1.5"}},"Materiais comprados durante a execução para reembolso. O que estiver publicado aparece na área do cliente com o total."),
         h("div",{style:{display:"flex",gap:"8px",alignItems:"center"}},
-          desp.length?h("div",{style:{fontSize:"12px",color:"var(--ip-muted)",textAlign:"right"}},"A reembolsar: ",h("b",{style:{color:despPend>0?"var(--ip-warn)":"var(--ip-ok)"}},brl(despPend))):null,
+          desp.length?h("div",{style:{fontSize:"12px",color:"var(--ip-muted)"}},"A reembolsar: ",h("b",{style:{color:despPend>0?"var(--ip-warn)":"var(--ip-ok)"}},brl(despPend))):null,
           h("button",{className:"ip-btn sm",onClick:function(){ setDAdd(!dAdd); }},"+ Despesa"))),
       dAdd?h("div",{style:{marginBottom:"14px",paddingBottom:"14px",borderBottom:"1px solid var(--glass-brd)"}},
         h("div",{className:"grid k3"},
@@ -2347,7 +2359,7 @@ function RedeMonitor(p){
       right:h("button",{className:"ip-btn ghost sm",onClick:carregar},"↻ Atualizar")}),
     h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"12px",borderColor:agenteOn?"var(--ip-ok)":"var(--ip-warn)"}},
       h("div",null, h("div",{className:"ip-sub"},"Disponibilidade média da rede (30 dias)"), h("div",{className:"kpi-big",style:{color:"var(--cli-1,var(--ip-accent))",marginTop:"4px"}}, dispGeral!=null?dispGeral+"%":"—")),
-      h("div",{style:{textAlign:"right"}}, h("div",{className:"ip-faint",style:{fontSize:"11px"}},"Agente on-site"), h("div",{style:{fontWeight:600,color:agenteOn?"var(--ip-ok)":"var(--ip-warn)"}}, agenteOn?"● Online":(agente&&agente.ultimo_contato?"○ Sem contato recente":"○ Nunca conectou")), (agente&&agente.ultimo_contato)?h("div",{className:"ip-faint",style:{fontSize:"10px"}},"últ. contato: "+brDate(agente.ultimo_contato)):null)),
+      h("div",{className:"hdr-side"}, h("div",{className:"ip-faint",style:{fontSize:"11px"}},"Agente on-site"), h("div",{style:{fontWeight:600,color:agenteOn?"var(--ip-ok)":"var(--ip-warn)"}}, agenteOn?"● Online":(agente&&agente.ultimo_contato?"○ Sem contato recente":"○ Nunca conectou")), (agente&&agente.ultimo_contato)?h("div",{className:"ip-faint",style:{fontSize:"10px"}},"últ. contato: "+brDate(agente.ultimo_contato)):null)),
     st===null?h("div",{className:"ip-muted"},h("span",{className:"spin"})," Carregando…"):
     (alvos.length?h("div",{className:"grid k3"}, alvos.map(function(a){ var stale=minDesde(a.ultimo)>15; var on=a.up&&!stale;
       return h("div",{key:a.alvo,className:"ip-card ip-pad"},
