@@ -336,6 +336,28 @@ html,body{overflow-x:clip}
    página inteira, brigando com o nosso (que só rebusca os dados). */
 body{overscroll-behavior-y:contain}
 
+/* Visor de arquivos (imagem/PDF) — cockpit e área do cliente */
+.ip-visor{position:fixed;inset:0;z-index:80;background:rgba(2,6,14,.86);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;padding:16px;animation:ip-fadeup .16s ease}
+.ip-visor-box{width:100%;max-width:900px;height:100%;max-height:92vh;display:flex;flex-direction:column;
+  background:rgba(11,18,32,.99);border:1px solid var(--glass-brd);border-radius:16px;overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.65)}
+.ip-visor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 12px;border-bottom:1px solid var(--ip-border);flex:none}
+.ip-visor-nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ip-visor-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+  background:#050a14;overflow:auto;padding:8px}
+.ip-visor-body img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.ip-visor-body iframe{width:100%;height:100%;border:0;background:#fff;border-radius:8px}
+.ip-visor-na{text-align:center;color:var(--ip-muted);font-size:13px;padding:30px 16px}
+@media(max-width:820px){
+  .ip-visor{padding:0}
+  .ip-visor-box{max-height:100%;border-radius:0;border:none;
+    padding-bottom:env(safe-area-inset-bottom)}
+  .ip-visor-top{padding-top:calc(10px + env(safe-area-inset-top))}
+}
+
 /* Aviso de versão nova (aparece por cima de tudo, inclusive da barra inferior) */
 .ip-update{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
   z-index:70;transform:translateY(140%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
@@ -621,6 +643,45 @@ function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMon
 function isAdminUser(u){ if(!u) return false; var em=(u.email||"").toLowerCase(); return (CFG.ADMIN_EMAILS||[]).indexOf(em)>-1; }
 
 /* ---------- UI atoms ---------- */
+/* Baixa sem window.open: no PWA instalado (iOS) a janela nova é bloqueada. */
+function baixarUrl(url,nome){
+  var el=document.createElement("a"); el.href=url; el.download=nome||"arquivo";
+  el.rel="noopener"; document.body.appendChild(el); el.click(); document.body.removeChild(el);
+}
+
+/* Visor — abre imagem e PDF DENTRO do app. Existe porque conferir uma nota
+   fiscal exigia baixar o arquivo antes de ver, e porque window.open com link
+   assinado é bloqueado no PWA instalado. Serve ao cockpit e à área do cliente.
+   Limite conhecido: o iOS não renderiza PDF em iframe de forma confiável —
+   por isso o botão "Baixar / Abrir" está SEMPRE visível, nunca só o preview. */
+function Visor(p){
+  useEffect(function(){
+    function esc(e){ if(e.key==="Escape") p.onClose(); }
+    document.addEventListener("keydown",esc);
+    var ov=document.body.style.overflow; document.body.style.overflow="hidden";
+    return function(){ document.removeEventListener("keydown",esc); document.body.style.overflow=ov; };
+  },[]);
+  var a=p.arq||{};
+  var nm=a.nome||"";
+  var ehImg=/\.(png|jpe?g|webp|gif|bmp|avif|heic)$/i.test(nm) || /^image\//.test(a.tipo||"");
+  var ehPdf=/\.pdf$/i.test(nm) || /pdf/i.test(a.tipo||"");
+  return h("div",{className:"ip-visor",onClick:function(e){ if(e.target===e.currentTarget) p.onClose(); }},
+    h("div",{className:"ip-visor-box"},
+      h("div",{className:"ip-visor-top"},
+        h("div",{className:"ip-visor-nm",title:nm},nm||"Arquivo"),
+        h("div",{style:{display:"flex",gap:"8px",flex:"none"}},
+          h("button",{className:"ip-btn ghost sm",onClick:function(){ p.onBaixar&&p.onBaixar(); }},"⬇ Baixar"),
+          h("button",{className:"ip-btn ghost sm iconbtn",title:"Fechar",onClick:p.onClose},"✕"))),
+      h("div",{className:"ip-visor-body"},
+        !a.url? h("span",{className:"spin"})
+        : ehImg? h("img",{src:a.url,alt:nm})
+        : ehPdf? h("iframe",{src:a.url,title:nm})
+        : h("div",{className:"ip-visor-na"},
+            h("div",{style:{fontSize:"34px",marginBottom:"8px"}},"📄"),
+            h("div",null,"Este tipo de arquivo não abre aqui dentro."),
+            h("button",{className:"ip-btn",style:{marginTop:"14px"},onClick:function(){ p.onBaixar&&p.onBaixar(); }},"⬇ Baixar arquivo")))));
+}
+
 /* PullRefresh — arrastar para baixo e atualizar (padrão de app no celular).
    Precisa ser nosso: dentro do PWA instalado (standalone) o navegador não
    oferece o gesto, e o nativo do Chrome recarrega a PÁGINA inteira. Aqui
@@ -1140,6 +1201,7 @@ function Carteira(p){
   function marcarPago(fat){ sb.from("iso_faturas").update({status:"pago",pago_em:new Date().toISOString()}).eq("id",fat.id).then(function(r){ if(r.error){p.flash("Erro","err");return;} p.flash("Fatura baixada ✓"); p.reload(); }); }
   function cobrar(c,fat){ var d=fat.vencimento?fat.vencimento.split("-").reverse().join("/"):""; var msg="Olá! Referente aos serviços da "+cliNome(c.cliente_id)+" ("+c.servico+"), a fatura de "+brl(fat.valor)+(fat.status==="atrasado"?(" venceu em "+d):(" vence em "+d))+". Qualquer dúvida, estou à disposição. — INPERSON Soluções em Tecnologia"; window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank","noopener"); }
   var upl=useState(""), uploC=upl[0], setUploC=upl[1];
+  var vsc=useState(null), visorC=vsc[0], setVisorC=vsc[1];
   function anexar(c,file){ if(!file) return; setUploC(c.id);
     var path="contratos/"+c.cliente_id+"/"+c.id+"_"+Date.now()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
     sb.storage.from("iso-contratos").upload(path,file,{upsert:true,contentType:file.type||undefined}).then(function(r){
@@ -1150,7 +1212,12 @@ function Carteira(p){
   function pickFile(c){ var inp=document.createElement("input"); inp.type="file"; inp.accept="application/pdf,.pdf,.doc,.docx"; inp.onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) anexar(c,f); }; inp.click(); }
   function togglePub(c){ if(!c.arquivo_path){ p.flash("Anexe o PDF do contrato antes de publicar.","err"); return; } var nv=!c.publicado_cliente;
     sb.from("iso_contratos").update({publicado_cliente:nv}).eq("id",c.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} p.flash(nv?"Contrato publicado na área do cliente ✓":"Contrato ocultado do cliente"); p.reload(); }); }
-  function verContrato(c){ if(!c.arquivo_path) return; sb.storage.from("iso-contratos").createSignedUrl(c.arquivo_path,120,{download:c.arquivo_nome}).then(function(u){ var url=u&&u.data&&u.data.signedUrl; if(!url){p.flash("Falha ao gerar link","err");return;} window.open(url,"_blank","noopener"); }).catch(function(){ p.flash("Falha ao abrir contrato","err"); }); }
+  /* abre no visor (URL assinada SEM `download`, senão o navegador baixa) */
+  function verContrato(c){ if(!c.arquivo_path) return;
+    setVisorC({nome:c.arquivo_nome,url:null,_c:c});
+    sb.storage.from("iso-contratos").createSignedUrl(c.arquivo_path,300).then(function(u){ var url=u&&u.data&&u.data.signedUrl; if(!url){ setVisorC(null); p.flash("Falha ao gerar link","err"); return; } setVisorC({nome:c.arquivo_nome,url:url,_c:c}); }).catch(function(){ setVisorC(null); p.flash("Falha ao abrir contrato","err"); }); }
+  function baixarContrato(c){ if(!c||!c.arquivo_path) return;
+    sb.storage.from("iso-contratos").createSignedUrl(c.arquivo_path,120,{download:c.arquivo_nome}).then(function(u){ var url=u&&u.data&&u.data.signedUrl; if(url) baixarUrl(url,c.arquivo_nome); }); }
   function dBR(s){ try{ return new Date(s).toLocaleDateString("pt-BR"); }catch(e){ return ""; } }
   function kcard(l,v,cor){ return h("div",{className:"ip-card ip-pad",style:{flex:1,minWidth:"160px"}}, h("div",{className:"ip-sub"},l), h("div",{className:"kpi-big",style:{color:cor||"var(--ip-accent)",marginTop:"4px",fontSize:"23px"}},v)); }
   return h("div",null,
@@ -1210,7 +1277,8 @@ function Carteira(p){
           h("div",{className:"fin-leg"}, h("span",null,h("i",{className:"fat"}),"Faturado"), h("span",null,h("i",{className:"rec"}),"Recebido"))
         ):h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Ainda não há faturas geradas. Assim que você gerar e baixar faturas, a evolução da receita aparece aqui.")
       );
-    })()
+    })(),
+    visorC?h(Visor,{arq:visorC,onClose:function(){ setVisorC(null); },onBaixar:function(){ baixarContrato(visorC._c); }}):null
   );
 }
 
@@ -1337,6 +1405,7 @@ function Execucao(p){
     dPatch(dEditId,campo); setDEditId(null); p.flash("Despesa atualizada ✓"); }
   /* ----- comprovante (nota fiscal / recibo) ----- */
   var dcu=useState(""), compUp=dcu[0], setCompUp=dcu[1];
+  var vsr=useState(null), visor=vsr[0], setVisor=vsr[1];
   function anexarComp(d,file){ if(!file) return; setCompUp(d.id);
     var path=p.clienteId+"/"+d.id+"_"+Date.now()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
     sb.storage.from("iso-despesas").upload(path,file,{upsert:true,contentType:file.type||undefined}).then(function(r){
@@ -1348,10 +1417,16 @@ function Execucao(p){
   function pickComp(d){ var inp=document.createElement("input"); inp.type="file";
     inp.accept="image/*,application/pdf,.pdf,.jpg,.jpeg,.png,.webp";
     inp.onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) anexarComp(d,f); }; inp.click(); }
+  /* preview: URL assinada SEM o parâmetro `download` — com ele o navegador
+     baixa em vez de exibir, que era o comportamento antigo. */
   function verComp(d){ if(!d.comprovante_path) return;
+    setVisor({nome:d.comprovante_nome,url:null,_d:d});
+    sb.storage.from("iso-despesas").createSignedUrl(d.comprovante_path,300).then(function(u){
+      var url=u&&u.data&&u.data.signedUrl; if(!url){ setVisor(null); p.flash("Falha ao gerar link","err"); return; }
+      setVisor({nome:d.comprovante_nome,url:url,_d:d}); }).catch(function(){ setVisor(null); p.flash("Falha ao abrir comprovante","err"); }); }
+  function baixarComp(d){ if(!d||!d.comprovante_path) return;
     sb.storage.from("iso-despesas").createSignedUrl(d.comprovante_path,120,{download:d.comprovante_nome}).then(function(u){
-      var url=u&&u.data&&u.data.signedUrl; if(!url){ p.flash("Falha ao gerar link","err"); return; }
-      window.open(url,"_blank","noopener"); }).catch(function(){ p.flash("Falha ao abrir comprovante","err"); }); }
+      var url=u&&u.data&&u.data.signedUrl; if(url) baixarUrl(url,d.comprovante_nome); }); }
   function tirarComp(d){ if(!window.confirm("Remover o comprovante \""+(d.comprovante_nome||"")+"\"?")) return;
     sb.storage.from("iso-despesas").remove([d.comprovante_path]).then(function(){
       sb.from("acomp_despesas").update({comprovante_path:null,comprovante_nome:null}).eq("id",d.id).then(function(){ carregarDesp(); p.flash("Comprovante removido"); }); }); }
@@ -1485,7 +1560,8 @@ function Execucao(p){
             h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir despesa",onClick:function(){ delDesp(d); }},"✕")))); })),
         h("tfoot",null,h("tr",null,h("td",{colSpan:4,style:{textAlign:"right",fontWeight:600}},"Total"),h("td",null,h("b",{style:{color:"var(--ip-accent)"}},brl(despTotal))),h("td",{colSpan:2})))
       ):h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Nenhuma despesa registrada. Use \"+ Despesa\" para lançar materiais comprados durante a execução.")
-    )
+    ),
+    visor?h(Visor,{arq:visor,onClose:function(){ setVisor(null); },onBaixar:function(){ baixarComp(visor._d); }}):null
   );
 }
 
@@ -1500,17 +1576,28 @@ function AcompPublico(p){
   var ac=useState(null), aceitando=ac[0], setAceitando=ac[1];
   var an=useState(""), aceiteNome=an[0], setAceiteNome=an[1];
   var ds=useState([]), desps=ds[0], setDesps=ds[1];
+  var vz=useState(null), visor=vz[0], setVisor=vz[1];
   function carregar(){ sb.rpc("acomp_publico",{p_token:p.token}).then(function(r){ var d=r.error?null:(r.data||null); setDados(d); setItens((d&&d.itens)||[]); try{ document.title="Acompanhamento de Execução de Serviço"+(d&&d.cliente?(" · "+d.cliente):""); }catch(e){} }).catch(function(){ setDados(null); });
     sb.rpc("acomp_relatorios",{p_token:p.token}).then(function(r){ setRels((r&&!r.error&&r.data)||[]); }).catch(function(){ setRels([]); });
     sb.rpc("acomp_contratos",{p_token:p.token}).then(function(r){ setContratos((r&&!r.error&&r.data)||[]); }).catch(function(){ setContratos([]); });
     sb.rpc("acomp_despesas",{p_token:p.token}).then(function(r){ setDesps((r&&!r.error&&r.data)||[]); }).catch(function(){ setDesps([]); }); }
-  function _fnCall(action,contrato_id,nome,despesa_id){ return fetch(CFG.SUPABASE_URL+"/functions/v1/iso-contrato",{method:"POST",headers:{"Content-Type":"application/json","apikey":CFG.SUPABASE_KEY,"Authorization":"Bearer "+CFG.SUPABASE_KEY},body:JSON.stringify({action:action,token:p.token,contrato_id:contrato_id||null,nome:nome||null,despesa_id:despesa_id||null})}).then(function(r){return r.json();}); }
+  function _fnCall(action,contrato_id,nome,despesa_id,modo){ return fetch(CFG.SUPABASE_URL+"/functions/v1/iso-contrato",{method:"POST",headers:{"Content-Type":"application/json","apikey":CFG.SUPABASE_KEY,"Authorization":"Bearer "+CFG.SUPABASE_KEY},body:JSON.stringify({action:action,token:p.token,contrato_id:contrato_id||null,nome:nome||null,despesa_id:despesa_id||null,modo:modo||"preview"})}).then(function(r){return r.json();}); }
   /* comprovante da despesa: bucket privado, link assinado pela Edge Function
-     (valida token -> cliente -> despesa publicada). */
-  function baixarComp(d){ _fnCall("despesa-download",null,null,d.id).then(function(j){
-    if(j&&j.url){ window.open(j.url,"_blank","noopener"); } else { alert("Não foi possível abrir o comprovante agora."); }
-  }).catch(function(){ alert("Falha ao abrir o comprovante."); }); }
-  function baixarCt(c){ _fnCall("download",c.id).then(function(j){ if(j&&j.url){ window.open(j.url,"_blank","noopener"); } else { alert("Não foi possível abrir o contrato agora."); } }).catch(function(){ alert("Falha ao abrir o contrato."); }); }
+     (valida token -> cliente -> despesa publicada). Abre no visor; baixar é opção. */
+  function verComp(d){ setVisor({nome:d.comprovante_nome,url:null,_tipo:"despesa",_id:d.id});
+    _fnCall("despesa-download",null,null,d.id,"preview").then(function(j){
+      if(j&&j.url){ setVisor({nome:j.nome||d.comprovante_nome,url:j.url,_tipo:"despesa",_id:d.id}); }
+      else { setVisor(null); alert("Não foi possível abrir o comprovante agora."); }
+    }).catch(function(){ setVisor(null); alert("Falha ao abrir o comprovante."); }); }
+  function baixarVisor(){ var v=visor; if(!v) return;
+    var acao=v._tipo==="despesa"?"despesa-download":"download";
+    _fnCall(acao, v._tipo==="contrato"?v._id:null, null, v._tipo==="despesa"?v._id:null, "download").then(function(j){
+      if(j&&j.url) baixarUrl(j.url, j.nome||v.nome); }); }
+  function baixarCt(c){ setVisor({nome:c.arquivo_nome||"Contrato.pdf",url:null,_tipo:"contrato",_id:c.id});
+    _fnCall("download",c.id,null,null,"preview").then(function(j){
+      if(j&&j.url){ setVisor({nome:j.nome||"Contrato.pdf",url:j.url,_tipo:"contrato",_id:c.id}); }
+      else { setVisor(null); alert("Não foi possível abrir o contrato agora."); }
+    }).catch(function(){ setVisor(null); alert("Falha ao abrir o contrato."); }); }
   function aceitarCt(c){ var nome=(aceiteNome||"").trim(); if(nome.length<3){ alert("Digite seu nome completo para registrar o aceite."); return; } setAceitando(c.id);
     _fnCall("aceitar",c.id,nome).then(function(j){ setAceitando(null); if(j&&j.ok){ setAceiteNome(""); carregar(); } else { alert((j&&j.error)||"Não foi possível registrar o aceite."); } }).catch(function(){ setAceitando(null); alert("Falha ao registrar o aceite."); }); }
   useEffect(function(){ carregar(); },[p.token]);
@@ -1527,6 +1614,7 @@ function AcompPublico(p){
   var _sty={}; if(dados.cor_primaria) _sty["--ip-accent"]=dados.cor_primaria; if(dados.cor_secundaria) _sty["--ip-accent-2"]=dados.cor_secundaria;
   return h("div",{className:"acp",style:_sty},
     h(PullRefresh,{onRefresh:carregar}),
+    visor?h(Visor,{arq:visor,onClose:function(){ setVisor(null); },onBaixar:baixarVisor}):null,
     h("div",{className:"acp-head"},
       _logo?h("div",{className:"acp-clilogo"},h("img",{src:_logo,alt:dados.cliente})):h("img",{src:IP_LOGO,alt:"INPERSON",className:"acp-hero"}),
       h("h1",null,dados.titulo),
@@ -1559,7 +1647,7 @@ function AcompPublico(p){
               h("div",{className:"acp-ditem"},d.item),
               h("div",{className:"acp-dmeta"},d.quantidade+" × "+_brl(d.valor)+(d.data?(" · "+brDate(d.data)):"")),
               d.descricao?h("div",{className:"acp-ddesc"},d.descricao):null,
-              d.tem_comprovante?h("button",{className:"acp-dcomp",onClick:function(){ baixarComp(d); },title:d.comprovante_nome||"Comprovante"},"🧾 Ver comprovante"):null),
+              d.tem_comprovante?h("button",{className:"acp-dcomp",onClick:function(){ verComp(d); },title:d.comprovante_nome||"Comprovante"},"🧾 Ver comprovante"):null),
             h("div",{className:"acp-dside"},
               h("div",{className:"acp-dsub2"},_brl(sub)),
               d.status==="reembolsado"?h("span",{className:"acp-dok"},"reembolsado ✓"):null)); })),
