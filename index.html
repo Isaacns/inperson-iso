@@ -152,6 +152,17 @@ h1,h2,h3{font-weight:300;margin:0}
 /* acompanhamento / execução */
 .prog{height:9px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
 .prog i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cli-2),var(--cli-1));transition:width .4s ease}
+/* Bloco do link do cliente (aba Execução) */
+.exec-link{text-align:right}
+.exec-link-row{display:flex;gap:8px;margin-top:6px;align-items:center}
+.exec-link-row .ip-input{width:320px;font-size:12px}
+.exec-link-row .ip-btn{flex:none}
+@media(max-width:820px){
+  /* largura fixa de 320px + alinhamento à direita espremiam o campo e jogavam
+     o rótulo contra a borda no celular. */
+  .exec-link{text-align:left;width:100%}
+  .exec-link-row .ip-input{width:auto;flex:1 1 auto;min-width:0}
+}
 .exec-row{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid var(--ip-border)}
 .exec-row:last-child{border-bottom:none}
 .exec-row:hover{background:rgba(116,176,216,.04)}
@@ -321,6 +332,19 @@ h1,h2,h3{font-weight:300;margin:0}
    `clip` e não `hidden`: hidden cria contexto de rolagem e quebra o
    position:sticky da sidebar no desktop. */
 html,body{overflow-x:clip}
+/* Sem isto o pull-to-refresh NATIVO do Chrome dispara junto e recarrega a
+   página inteira, brigando com o nosso (que só rebusca os dados). */
+body{overscroll-behavior-y:contain}
+
+/* Indicador do "arrastar para atualizar" */
+.ip-ptr{position:fixed;top:0;left:50%;margin-left:-18px;z-index:47;pointer-events:none;will-change:transform}
+.ip-ptr.busy{transition:transform .22s ease}
+.ip-ptr-c{width:36px;height:36px;border-radius:50%;background:rgba(11,18,32,.97);
+  border:1px solid var(--glass-brd);display:grid;place-items:center;
+  box-shadow:0 8px 22px rgba(0,0,0,.5)}
+.ip-ptr .ar{font-size:15px;color:var(--ip-accent);transition:transform .2s ease;line-height:1}
+.ip-ptr .ar.go{transform:rotate(180deg)}
+@media(min-width:821px){ .ip-ptr{display:none} }
 
 /* 1. Safe area (notch / barra inferior do iPhone) + espaço da barra de navegação */
 @media(max-width:820px){
@@ -584,6 +608,72 @@ function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMon
 function isAdminUser(u){ if(!u) return false; var em=(u.email||"").toLowerCase(); return (CFG.ADMIN_EMAILS||[]).indexOf(em)>-1; }
 
 /* ---------- UI atoms ---------- */
+/* PullRefresh — arrastar para baixo e atualizar (padrão de app no celular).
+   Precisa ser nosso: dentro do PWA instalado (standalone) o navegador não
+   oferece o gesto, e o nativo do Chrome recarrega a PÁGINA inteira. Aqui
+   recarregamos só os DADOS: é instantâneo e não perde o estado da tela.
+
+   Quem rola aqui é o BODY (a sidebar é sticky, não um container próprio),
+   então window.scrollY é o gatilho. Em app cujo scroller seja um elemento
+   (ex.: FlowShift usa .main com body overflow:hidden) esta checagem muda. */
+function PullRefresh(p){
+  var ds=useState(0), dist=ds[0], setDist=ds[1];
+  var bs=useState(false), busy=bs[0], setBusy=bs[1];
+  var g=React.useRef({y0:0,on:false,d:0,busy:false});
+  var cb=React.useRef(p.onRefresh); cb.current=p.onRefresh;
+  useEffect(function(){
+    var LIMIAR=70, MAX=110;
+    /* se o dedo começou dentro de algo que já rola (modal, lista interna),
+       o gesto é daquele elemento — não nosso. */
+    function emAreaQueRola(el){
+      while(el && el!==document.body){
+        try{ var cs=getComputedStyle(el);
+          if(/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight>el.clientHeight && el.scrollTop>0) return true;
+        }catch(e){}
+        el=el.parentElement;
+      }
+      return false;
+    }
+    function start(e){
+      if(g.current.busy) return;
+      if(window.scrollY>0) return;
+      if(!e.touches || e.touches.length!==1) return;
+      if(emAreaQueRola(e.target)) return;
+      g.current.y0=e.touches[0].clientY; g.current.on=true; g.current.d=0;
+    }
+    function move(e){
+      if(!g.current.on) return;
+      var dy=e.touches[0].clientY-g.current.y0;
+      if(dy<=0 || window.scrollY>0){ g.current.on=false; g.current.d=0; setDist(0); return; }
+      var d=Math.min(MAX, dy*0.5); /* resistência: o dedo anda o dobro do indicador */
+      g.current.d=d; setDist(d);
+      if(d>4 && e.cancelable) e.preventDefault(); /* segura a rolagem/PTR nativo */
+    }
+    function end(){
+      if(!g.current.on) return;
+      g.current.on=false;
+      if(g.current.d>=LIMIAR){
+        g.current.busy=true; setBusy(true); setDist(LIMIAR);
+        Promise.resolve().then(function(){ return cb.current && cb.current(); })
+          .catch(function(){})
+          .then(function(){ setTimeout(function(){ g.current.busy=false; setBusy(false); setDist(0); g.current.d=0; }, 450); });
+      } else { setDist(0); g.current.d=0; }
+    }
+    addEventListener("touchstart",start,{passive:true});
+    addEventListener("touchmove",move,{passive:false});
+    addEventListener("touchend",end,{passive:true});
+    addEventListener("touchcancel",end,{passive:true});
+    return function(){
+      removeEventListener("touchstart",start); removeEventListener("touchmove",move);
+      removeEventListener("touchend",end); removeEventListener("touchcancel",end);
+    };
+  },[]);
+  if(dist<=0 && !busy) return null;
+  var pronto=dist>=70;
+  return h("div",{className:cx("ip-ptr",busy?"busy":""),style:{transform:"translateY("+(dist-44)+"px)",opacity:Math.min(1,dist/44)}},
+    h("div",{className:"ip-ptr-c"}, busy?h("span",{className:"spin"}):h("span",{className:cx("ar",pronto?"go":"")},"↓")));
+}
+
 /* Navegação do celular: a sidebar de 14 itens não cabe embaixo. Levamos os 4
    destinos mais usados para a barra e o resto para a folha "Mais". */
 var BNAV_PRIN=["central","painel","execucao","chamados"];
@@ -906,6 +996,7 @@ function App(){
       )
     ),
     h(BottomNav,{NAV:NAV,view:view,go:go,open:navOpen,setOpen:setNavOpen,busy:!!(editing||docView||editDoc)}),
+    h(PullRefresh,{onRefresh:carregar}),
     h(Toast,toast||{})
   );
 }
@@ -1251,9 +1342,9 @@ function Execucao(p){
       right:h("button",{className:"ip-btn sm",onClick:function(){ setAdding(!adding); }},"+ Item")}),
     h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
       h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"12px",flexWrap:"wrap"}},
-        h("div",null, h("div",{className:"ip-sub"},"Progresso da execução"), h("div",{className:"kpi-big",style:{color:pct===100?"var(--ip-ok)":"var(--ip-accent)"}},pct+"%"), h("div",{className:"ip-faint",style:{fontSize:"12px"}},nCon+" de "+items.length+" concluídos · "+nVal+" validados)")),
-        p.shareC?h("div",{style:{textAlign:"right"}}, h("div",{className:"ip-sub"},"Link de acompanhamento (André)"),
-          h("div",{style:{display:"flex",gap:"8px",marginTop:"6px",alignItems:"center"}}, h("input",{className:"ip-input",readOnly:true,value:link,style:{width:"320px",fontSize:"12px"},onFocus:function(e){e.target.select();}}), h("button",{className:"ip-btn sm",onClick:copiarLink},"Copiar")),
+        h("div",null, h("div",{className:"ip-sub"},"Progresso da execução"), h("div",{className:"kpi-big",style:{color:pct===100?"var(--ip-ok)":"var(--ip-accent)"}},pct+"%"), h("div",{className:"ip-faint",style:{fontSize:"12px"}},nCon+" de "+items.length+" concluídos · "+nVal+" validados")),
+        p.shareC?h("div",{className:"exec-link"}, h("div",{className:"ip-sub"},"Link de acompanhamento (André)"),
+          h("div",{className:"exec-link-row"}, h("input",{className:"ip-input",readOnly:true,value:link,onFocus:function(e){e.target.select();}}), h("button",{className:"ip-btn sm",onClick:copiarLink},"Copiar")),
           h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"4px"}},"Somente leitura · sem login")):null),
       h("div",{className:"prog",style:{marginTop:"12px"}}, h("i",{style:{width:pct+"%"}}))),
     adding?h("div",{className:"ip-card ip-pad",style:{marginBottom:"16px"}},
@@ -1380,6 +1471,7 @@ function AcompPublico(p){
   var _logo=cliLogo(dados.logo);
   var _sty={}; if(dados.cor_primaria) _sty["--ip-accent"]=dados.cor_primaria; if(dados.cor_secundaria) _sty["--ip-accent-2"]=dados.cor_secundaria;
   return h("div",{className:"acp",style:_sty},
+    h(PullRefresh,{onRefresh:carregar}),
     h("div",{className:"acp-head"},
       _logo?h("div",{className:"acp-clilogo"},h("img",{src:_logo,alt:dados.cliente})):h("img",{src:IP_LOGO,alt:"INPERSON",className:"acp-hero"}),
       h("h1",null,dados.titulo),
