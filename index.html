@@ -672,6 +672,50 @@ function lastSemestres(n){ var out=[],d=new Date(),y=d.getFullYear(),s=(d.getMon
 function isAdminUser(u){ if(!u) return false; var em=(u.email||"").toLowerCase(); return (CFG.ADMIN_EMAILS||[]).indexOf(em)>-1; }
 
 /* ---------- UI atoms ---------- */
+/* comprimirImagem — foto de celular vira JPEG de no máx. 1600px.
+   FONTE ÚNICA: usada pelas Mídias e pelas despesas.
+
+   Dois motivos, ambos verificados em campo:
+   1) Foto de iPhone tem 3–5 MB. Subir crua é lento no 4G da clínica e
+      custa storage à toa.
+   2) HEIC: o iPhone salva nesse formato e NENHUM navegador o renderiza,
+      exceto o Safari da Apple. A miniatura funcionaria para o Isaac e
+      apareceria QUEBRADA para o cliente no Android/PC — justamente na tela
+      onde ele aprova o reembolso. O canvas do iOS decodifica HEIC (o sistema
+      dá suporte), então converter no aparelho resolve para todo mundo.
+
+   Detalhe que já nos enganou: HEIC chega com type vazio ou
+   "application/octet-stream" — testar só `type.startsWith("image/")` deixa
+   passar sem converter. Por isso olhamos também a extensão. */
+function comprimirImagem(f){
+  return new Promise(function(res){
+    var nome=f.name||"";
+    /* SVG é vetor: passar pelo canvas o rasterizaria e perderia qualidade */
+    if(/svg/i.test(f.type||"") || /\.svg$/i.test(nome)){ res(f); return; }
+    var ehHeic=/\.(heic|heif)$/i.test(nome) || /heic|heif/i.test(f.type||"");
+    var ehImg=/^image\//.test(f.type||"") || ehHeic || /\.(jpe?g|png|webp|bmp|avif)$/i.test(nome);
+    if(!ehImg){ res(f); return; }
+    try{
+      var u=URL.createObjectURL(f); var im=new Image();
+      im.onload=function(){
+        try{ URL.revokeObjectURL(u); }catch(e){}
+        var mx=1600, w=im.width, hh=im.height, sc=Math.min(1,mx/Math.max(w,hh));
+        /* HEIC SEMPRE converte, mesmo pequeno: o formato é o problema, não o tamanho */
+        if(!ehHeic && sc>=1 && f.size<700000){ res(f); return; }
+        var cw=Math.max(1,Math.round(w*sc)), ch=Math.max(1,Math.round(hh*sc));
+        var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+        cv.getContext("2d").drawImage(im,0,0,cw,ch);
+        cv.toBlob(function(b){
+          if(!b || (!ehHeic && b.size>=f.size)){ res(f); return; }
+          res(new File([b], nome.replace(/\.(png|jpe?g|webp|bmp|heic|heif|avif)$/i,"")+".jpg", {type:"image/jpeg"}));
+        },"image/jpeg",0.82);
+      };
+      im.onerror=function(){ try{ URL.revokeObjectURL(u); }catch(e){} res(f); };
+      im.src=u;
+    }catch(e){ res(f); }
+  });
+}
+
 /* Baixa sem window.open: no PWA instalado (iOS) a janela nova é bloqueada. */
 function baixarUrl(url,nome){
   var el=document.createElement("a"); el.href=url; el.download=nome||"arquivo";
@@ -1459,13 +1503,16 @@ function Execucao(p){
     var arr=[].slice.call(files);
     (function proximo(i){
       if(i>=arr.length){ setCompUp(""); p.flash(arr.length+" arquivo(s) anexado(s) ✓"); carregarArqs(d.id); return; }
-      var f=arr[i];
+      /* comprime/converte ANTES de subir: foto de iPhone tem 3-5MB e vem em
+         HEIC, que só o Safari renderiza (quebraria a miniatura pro cliente). */
+      comprimirImagem(arr[i]).then(function(f){
       var path=p.clienteId+"/"+d.id+"/"+Date.now()+"_"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
       sb.storage.from("iso-despesas").upload(path,f,{upsert:false,contentType:f.type||undefined}).then(function(r){
         if(r.error){ setCompUp(""); p.flash("Erro no upload: "+r.error.message,"err"); return; }
         sb.from("acomp_despesa_arquivos").insert({despesa_id:d.id,cliente_id:p.clienteId,path:path,nome:f.name,tipo:f.type||null,tamanho:f.size||null})
           .then(function(x){ if(x.error){ setCompUp(""); p.flash("Erro: "+x.error.message,"err"); return; } proximo(i+1); });
       }).catch(function(e){ setCompUp(""); p.flash("Erro: "+String(e),"err"); });
+      });
     })(0);
   }
   function pickComp(d){ var inp=document.createElement("input"); inp.type="file"; inp.multiple=true;
@@ -1865,18 +1912,10 @@ function Anexos(p){
     });
   }
   useEffect(function(){ setLista(null); if(p.clienteId) carregar(); },[p.clienteId]);
-  function compress(f){ return new Promise(function(res){
-    if(!/^image\//.test(f.type||"")||/heic|heif|svg/i.test(f.type||"")){ res(f); return; }
-    try{ var u=URL.createObjectURL(f); var im=new Image();
-      im.onload=function(){ try{URL.revokeObjectURL(u);}catch(e){} var mx=1600, w=im.width, hh=im.height, sc=Math.min(1,mx/Math.max(w,hh));
-        if(sc>=1&&f.size<700000){ res(f); return; }
-        var cw=Math.max(1,Math.round(w*sc)), ch=Math.max(1,Math.round(hh*sc)), cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
-        cv.getContext("2d").drawImage(im,0,0,cw,ch);
-        cv.toBlob(function(b){ if(!b||b.size>=f.size){ res(f); return; } res(new File([b], f.name.replace(/\.(png|jpe?g|webp|bmp)$/i,"")+".jpg", {type:"image/jpeg"})); },"image/jpeg",0.82);
-      };
-      im.onerror=function(){ try{URL.revokeObjectURL(u);}catch(e){} res(f); }; im.src=u;
-    }catch(e){ res(f); }
-  }); }
+  /* usa o helper único (comprimirImagem). O compressor local que existia aqui
+     pulava HEIC de propósito — por isso os IMG_*.HEIC subiram crus e não
+     abrem fora do Safari. Fonte única corrige Mídias e despesas de uma vez. */
+  var compress=comprimirImagem;
   function onFile(ev){ var files=ev.target.files; if(!files||!files.length) return; setUploading(true);
     var arr=[].slice.call(files);
     (function next(i){ if(i>=arr.length){ setUploading(false); setProg(""); try{ev.target.value="";}catch(e){} carregar(); p.flash(arr.length+" arquivo(s) enviado(s) ✓"); return; }
