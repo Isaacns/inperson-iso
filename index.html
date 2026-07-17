@@ -230,6 +230,10 @@ h1,h2,h3{font-weight:300;margin:0}
 .acp-ditem{font-size:13.5px;font-weight:600}
 .acp-dmeta{font-size:11.5px;color:var(--ip-accent);margin-top:2px}
 .acp-ddesc{font-size:11px;color:var(--ip-muted);margin-top:3px;line-height:1.5}
+.acp-dcomp{display:inline-flex;align-items:center;gap:5px;margin-top:7px;padding:7px 11px;min-height:36px;
+  font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;
+  color:var(--ip-ok);background:rgba(95,191,143,.1);border:1px solid rgba(95,191,143,.4);border-radius:9px}
+.acp-dcomp:hover{background:rgba(95,191,143,.18)}
 .acp-dside{text-align:right;white-space:nowrap}
 .acp-dsub2{font-size:13.5px;font-weight:600}
 .acp-dok{font-size:10px;color:var(--ip-ok);display:block;margin-top:3px}
@@ -1185,7 +1189,30 @@ function Execucao(p){
     var campo={item:dEdf.item.trim(),quantidade:Number(dEdf.quantidade||1),valor:Number(dEdf.valor||0),descricao:dEdf.descricao||null};
     if(dEdf.data) campo.data=dEdf.data;
     dPatch(dEditId,campo); setDEditId(null); p.flash("Despesa atualizada ✓"); }
+  /* ----- comprovante (nota fiscal / recibo) ----- */
+  var dcu=useState(""), compUp=dcu[0], setCompUp=dcu[1];
+  function anexarComp(d,file){ if(!file) return; setCompUp(d.id);
+    var path=p.clienteId+"/"+d.id+"_"+Date.now()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+    sb.storage.from("iso-despesas").upload(path,file,{upsert:true,contentType:file.type||undefined}).then(function(r){
+      if(r.error){ setCompUp(""); p.flash("Erro no upload: "+r.error.message,"err"); return; }
+      sb.from("acomp_despesas").update({comprovante_path:path,comprovante_nome:file.name}).eq("id",d.id).then(function(x){
+        setCompUp(""); if(x.error){ p.flash("Erro: "+x.error.message,"err"); return; }
+        p.flash("Comprovante anexado ✓"); carregarDesp(); });
+    }).catch(function(e){ setCompUp(""); p.flash("Erro: "+String(e),"err"); }); }
+  function pickComp(d){ var inp=document.createElement("input"); inp.type="file";
+    inp.accept="image/*,application/pdf,.pdf,.jpg,.jpeg,.png,.webp";
+    inp.onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) anexarComp(d,f); }; inp.click(); }
+  function verComp(d){ if(!d.comprovante_path) return;
+    sb.storage.from("iso-despesas").createSignedUrl(d.comprovante_path,120,{download:d.comprovante_nome}).then(function(u){
+      var url=u&&u.data&&u.data.signedUrl; if(!url){ p.flash("Falha ao gerar link","err"); return; }
+      window.open(url,"_blank","noopener"); }).catch(function(){ p.flash("Falha ao abrir comprovante","err"); }); }
+  function tirarComp(d){ if(!window.confirm("Remover o comprovante \""+(d.comprovante_nome||"")+"\"?")) return;
+    sb.storage.from("iso-despesas").remove([d.comprovante_path]).then(function(){
+      sb.from("acomp_despesas").update({comprovante_path:null,comprovante_nome:null}).eq("id",d.id).then(function(){ carregarDesp(); p.flash("Comprovante removido"); }); }); }
+
   function delDesp(d){ if(!window.confirm("Excluir a despesa \""+d.item+"\"?")) return;
+    /* o arquivo no storage não some sozinho ao apagar a linha: limpa antes */
+    if(d.comprovante_path){ sb.storage.from("iso-despesas").remove([d.comprovante_path]).catch(function(){}); }
     sb.from("acomp_despesas").delete().eq("id",d.id).then(function(r){ if(r.error){p.flash("Erro: "+r.error.message,"err");return;} setDesp(function(l){ return l.filter(function(x){ return x.id!==d.id; }); }); }); }
   var despTotal=desp.reduce(function(a,d){ return a+Number(d.quantidade||0)*Number(d.valor||0); },0);
   var despPend=desp.filter(function(d){ return d.status!=="reembolsado"; }).reduce(function(a,d){ return a+Number(d.quantidade||0)*Number(d.valor||0); },0);
@@ -1295,12 +1322,18 @@ function Execucao(p){
                 h("button",{className:"ip-btn ghost sm",onClick:function(){ setDEditId(null); }},"Cancelar")))));
           return h("tr",{key:d.id},
           h("td",{className:"ip-muted","data-l":"Data",style:{fontSize:"12px"}},brDate(d.data)),
-          h("td",null,h("b",null,d.item), d.descricao?h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},d.descricao):null),
+          h("td",null,h("b",null,d.item), d.descricao?h("div",{className:"ip-faint",style:{fontSize:"11px",marginTop:"2px"}},d.descricao):null,
+            d.comprovante_path?h("div",{style:{marginTop:"3px"}},
+              h("span",{className:"ip-pill",style:{fontSize:"10px",color:"var(--ip-ok)",borderColor:"rgba(95,191,143,.4)",cursor:"pointer"},title:d.comprovante_nome,onClick:function(){verComp(d);}},"🧾 comprovante")):null),
           h("td",{className:"ip-muted","data-l":"Qtd"},d.quantidade),
           h("td",{className:"ip-muted","data-l":"Valor un."},brl(d.valor)),
           h("td",{"data-l":"Subtotal"},h("b",null,brl(sub))),
           h("td",{"data-l":"Situação"},h("button",{className:cx("bdg",d.status==="reembolsado"?"ok":"warn"),style:{cursor:"pointer",border:"none",fontSize:"11px"},title:"Clique para alternar",onClick:function(){ dPatch(d.id,{status:d.status==="reembolsado"?"pendente":"reembolsado"}); }}, d.status==="reembolsado"?"Reembolsado ✓":"Pendente")),
           h("td",{className:"col-acoes"},h("div",{className:"ip-actions"},
+            h("button",{className:"ip-btn ghost sm act",title:d.comprovante_path?("Trocar comprovante ("+(d.comprovante_nome||"")+")"):"Anexar nota fiscal ou recibo",onClick:function(){ pickComp(d); }},
+              compUp===d.id?"Enviando…":(d.comprovante_path?"🧾 Trocar":"📎 Comprovante")),
+            d.comprovante_path?h("button",{className:"ip-btn ghost sm act",title:"Baixar comprovante",onClick:function(){ verComp(d); }},"⬇ Ver"):null,
+            d.comprovante_path?h("button",{className:"ip-btn ghost sm iconbtn",title:"Remover comprovante",onClick:function(){ tirarComp(d); }},"🗑"):null,
             h("button",{className:"ip-btn ghost sm act",title:"Controla se aparece na área do cliente",onClick:function(){ dPatch(d.id,{publicado:!d.publicado}); }}, d.publicado?"👁 Visível":"🚫 Oculto"),
             h("button",{className:"ip-btn ghost sm iconbtn",title:"Editar despesa",onClick:function(){ abrirDEdit(d); }},"✎"),
             h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir despesa",onClick:function(){ delDesp(d); }},"✕")))); })),
@@ -1325,7 +1358,12 @@ function AcompPublico(p){
     sb.rpc("acomp_relatorios",{p_token:p.token}).then(function(r){ setRels((r&&!r.error&&r.data)||[]); }).catch(function(){ setRels([]); });
     sb.rpc("acomp_contratos",{p_token:p.token}).then(function(r){ setContratos((r&&!r.error&&r.data)||[]); }).catch(function(){ setContratos([]); });
     sb.rpc("acomp_despesas",{p_token:p.token}).then(function(r){ setDesps((r&&!r.error&&r.data)||[]); }).catch(function(){ setDesps([]); }); }
-  function _fnCall(action,contrato_id,nome){ return fetch(CFG.SUPABASE_URL+"/functions/v1/iso-contrato",{method:"POST",headers:{"Content-Type":"application/json","apikey":CFG.SUPABASE_KEY,"Authorization":"Bearer "+CFG.SUPABASE_KEY},body:JSON.stringify({action:action,token:p.token,contrato_id:contrato_id,nome:nome||null})}).then(function(r){return r.json();}); }
+  function _fnCall(action,contrato_id,nome,despesa_id){ return fetch(CFG.SUPABASE_URL+"/functions/v1/iso-contrato",{method:"POST",headers:{"Content-Type":"application/json","apikey":CFG.SUPABASE_KEY,"Authorization":"Bearer "+CFG.SUPABASE_KEY},body:JSON.stringify({action:action,token:p.token,contrato_id:contrato_id||null,nome:nome||null,despesa_id:despesa_id||null})}).then(function(r){return r.json();}); }
+  /* comprovante da despesa: bucket privado, link assinado pela Edge Function
+     (valida token -> cliente -> despesa publicada). */
+  function baixarComp(d){ _fnCall("despesa-download",null,null,d.id).then(function(j){
+    if(j&&j.url){ window.open(j.url,"_blank","noopener"); } else { alert("Não foi possível abrir o comprovante agora."); }
+  }).catch(function(){ alert("Falha ao abrir o comprovante."); }); }
   function baixarCt(c){ _fnCall("download",c.id).then(function(j){ if(j&&j.url){ window.open(j.url,"_blank","noopener"); } else { alert("Não foi possível abrir o contrato agora."); } }).catch(function(){ alert("Falha ao abrir o contrato."); }); }
   function aceitarCt(c){ var nome=(aceiteNome||"").trim(); if(nome.length<3){ alert("Digite seu nome completo para registrar o aceite."); return; } setAceitando(c.id);
     _fnCall("aceitar",c.id,nome).then(function(j){ setAceitando(null); if(j&&j.ok){ setAceiteNome(""); carregar(); } else { alert((j&&j.error)||"Não foi possível registrar o aceite."); } }).catch(function(){ setAceitando(null); alert("Falha ao registrar o aceite."); }); }
@@ -1373,7 +1411,8 @@ function AcompPublico(p){
             h("div",{className:"acp-dmain"},
               h("div",{className:"acp-ditem"},d.item),
               h("div",{className:"acp-dmeta"},d.quantidade+" × "+_brl(d.valor)+(d.data?(" · "+brDate(d.data)):"")),
-              d.descricao?h("div",{className:"acp-ddesc"},d.descricao):null),
+              d.descricao?h("div",{className:"acp-ddesc"},d.descricao):null,
+              d.tem_comprovante?h("button",{className:"acp-dcomp",onClick:function(){ baixarComp(d); },title:d.comprovante_nome||"Comprovante"},"🧾 Ver comprovante"):null),
             h("div",{className:"acp-dside"},
               h("div",{className:"acp-dsub2"},_brl(sub)),
               d.status==="reembolsado"?h("span",{className:"acp-dok"},"reembolsado ✓"):null)); })),
