@@ -579,6 +579,32 @@ body{overscroll-behavior-y:contain}
 .sec-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--ip-border),transparent)}
 .tbl-codigo{color:var(--ip-accent);font-weight:600;letter-spacing:.3px}
 .ip-tbl tbody tr:last-child td{border-bottom:none}
+/* ==========================================================================
+   PADRÃO ARRASTAR-E-SOLTAR — VIZIO/INPERSON
+   Norma: Projects/VIZIO/PADRAO-ARRASTAR-VIZIO.md · origem: inovar-painel/app-pauta.js
+   Arrastar é atalho, nunca o único caminho — os botões de ação continuam existindo.
+   ========================================================================== */
+.dnd-item{cursor:grab;-webkit-user-select:none;user-select:none;transition:opacity .12s}
+.dnd-item:active{cursor:grabbing}
+.dnd-item.dragging{opacity:.45}
+.dnd-zone{transition:background .14s}
+.dnd-zone.drop-ok{outline:2px dashed var(--ip-accent);outline-offset:-4px;background:var(--ip-accent-dim)}
+.dnd-zone.deny{outline:2px dashed #E5484D;outline-offset:-4px;background:rgba(229,72,77,.09);cursor:not-allowed}
+
+/* Quadro de chamados (kanban por status) */
+.kb{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start}
+.kbcol{background:var(--ip-card,rgba(255,255,255,.03));border:1px solid var(--ip-border);border-radius:14px;padding:10px;min-height:150px}
+.kbcol h4{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--ip-muted);margin:2px 4px 10px}
+.kbcol h4 .n{margin-left:auto;font-size:12px;color:var(--ip-faint,#7c8b9c)}
+.kbdot{width:9px;height:9px;border-radius:50%;flex:none}
+.kbcard{background:rgba(255,255,255,.04);border:1px solid var(--ip-border);border-left:3px solid var(--ip-accent);
+  border-radius:11px;padding:10px 11px;margin-bottom:9px}
+.kbcard .t{font-size:13px;font-weight:500;line-height:1.35}
+.kbcard .m{font-size:11px;color:var(--ip-faint,#7c8b9c);margin-top:4px}
+.kbcard .sla{display:inline-block;font-size:10px;font-weight:700;color:#E5484D;border:1px solid rgba(229,72,77,.4);border-radius:20px;padding:1px 7px;margin-top:6px}
+.kbvazio{font-size:12px;color:var(--ip-faint,#7c8b9c);text-align:center;padding:16px 6px}
+@media(max-width:1100px){ .kb{grid-template-columns:1fr} }
+
 </style>
 <script>
 // Configuração de conexão — INPERSON Qualidade ISO (app independente)
@@ -2386,6 +2412,8 @@ function Chamados(p){
   var fst=useState(blank()), f=fst[0], setF=fst[1];
   var sv=useState(false), saving=sv[0], setSaving=sv[1];
   var flt=useState("abertos"), filt=flt[0], setFilt=flt[1];
+  var vw=useState("quadro"), vista=vw[0], setVista=vw[1];
+  var dg=useState(null), drag=dg[0], setDrag=dg[1];
   function up(k,v){ setF(Object.assign({},f,(function(){var o={};o[k]=v;return o;})())); }
   function open(a){ setEdit(a||{}); setF(a?Object.assign(blank(),a):blank()); }
   function close(){ setEdit(null); }
@@ -2408,9 +2436,54 @@ function Chamados(p){
   var tmedio=temposMs.length?humano((temposMs.reduce(function(a,b){return a+b;},0)/temposMs.length)/3600000):"—";
   var lista=chs.filter(function(c){ return filt==="todos"?true:(filt==="abertos"?(c.status==="aberto"||c.status==="andamento"):c.status===filt); });
   function kcard(lbl,val,cor){ return h("div",{className:"ip-card ip-pad",style:{flex:1}}, h("div",{className:"ip-faint",style:{fontSize:"11px",textTransform:"uppercase",letterSpacing:".5px"}},lbl), h("div",{style:{fontSize:"26px",fontWeight:300,color:cor||"var(--ip-accent)",marginTop:"4px"}},val)); }
+
+  /* ===== Quadro (kanban por status) — padrão de arraste da casa =====
+     Norma: Projects/VIZIO/PADRAO-ARRASTAR-VIZIO.md
+     Arrastar é atalho: os botões Atender/Resolver/Reabrir continuam na lista. */
+  var STCOR={aberto:"#F2A03D",andamento:"var(--ip-accent)",resolvido:"var(--ip-ok,#3FB984)",fechado:"#7c8b9c"};
+  function soltarEm(st){
+    var c=drag; setDrag(null);
+    if(!c) return;
+    if(c.status===st) return;                                    // mesma posição = nada
+    mudar(c,st);                                                 // reaproveita a regra existente
+  }
+  function quadro(){
+    return h("div",{className:"kb"}, STS.map(function(s){
+      var itens=chs.filter(function(c){ return (c.status||"aberto")===s[0]; });
+      return h("div",{key:s[0], className:"kbcol dnd-zone",
+        onDragOver:function(ev){ ev.preventDefault(); try{ev.dataTransfer.dropEffect="move";}catch(x){}
+          ev.currentTarget.classList.add(drag&&drag.status===s[0]?"deny":"drop-ok"); },
+        onDragLeave:function(ev){ if(!ev.currentTarget.contains(ev.relatedTarget)){
+          ev.currentTarget.classList.remove("drop-ok"); ev.currentTarget.classList.remove("deny"); } },
+        onDrop:function(ev){ ev.preventDefault();
+          ev.currentTarget.classList.remove("drop-ok"); ev.currentTarget.classList.remove("deny"); soltarEm(s[0]); }},
+        h("h4",null, h("span",{className:"kbdot",style:{background:STCOR[s[0]]}}), s[1], h("span",{className:"n"},String(itens.length))),
+        itens.length? itens.map(function(c){
+          var pr=priInfo(c.prioridade), estr=(c.status==="aberto"||c.status==="andamento")&&horasDesde(c.aberto_em)>(c.sla_horas||24);
+          return h("div",{key:c.id, className:"kbcard dnd-item", draggable:true,
+            style:{borderLeftColor:pr[2]},
+            title:"Arraste para mudar o status · clique para editar",
+            onDragStart:function(ev){ setDrag(c); ev.currentTarget.classList.add("dragging");
+              try{ ev.dataTransfer.effectAllowed="move";
+                   ev.dataTransfer.setData("text/chamadoid",String(c.id));
+                   ev.dataTransfer.setData("text/plain","chamado:"+c.id); }catch(x){} },
+            onDragEnd:function(ev){ ev.currentTarget.classList.remove("dragging"); setDrag(null);
+              try{ document.querySelectorAll(".kbcol.drop-ok,.kbcol.deny").forEach(function(z){ z.classList.remove("drop-ok"); z.classList.remove("deny"); }); }catch(x){} },
+            onClick:function(){ open(c); }},
+            h("div",{className:"t"}, (c.numero?(c.numero+" · "):"")+(c.titulo||"—")),
+            h("div",{className:"m"}, (c.categoria||"")+" · "+pr[1]+(c.solicitante?(" · "+c.solicitante):"")),
+            h("div",{className:"m"}, c.resolvido_em?("resolvido "+humano(horasDesde(c.resolvido_em))+" atrás"):("aberto há "+humano(horasDesde(c.aberto_em)))),
+            estr? h("span",{className:"sla"},"SLA estourado") : null);
+        }) : h("div",{className:"kbvazio"},"Arraste um chamado para cá"));
+    }));
+  }
   return h("div",null,
     h(TopBar,{title:"Atendimento & Chamados",sub:"Suporte e SLA · "+p.clienteNome,clientes:p.clientesISO,clienteId:p.clienteId,clienteNome:p.clienteNome,onClient:p.setClienteId,
-      right:h("button",{className:"ip-btn sm",onClick:function(){ open(null); }},"+ Novo chamado")}),
+      right:h("div",{style:{display:"flex",gap:"8px",alignItems:"center"}},
+        h("button",{className:"ip-btn ghost sm",title:"Alternar entre quadro e lista",
+          onClick:function(){ setVista(vista==="quadro"?"lista":"quadro"); }},
+          vista==="quadro"?"☰ Lista":"▦ Quadro"),
+        h("button",{className:"ip-btn sm",onClick:function(){ open(null); }},"+ Novo chamado"))}),
     h("div",{style:{display:"flex",gap:"12px",marginBottom:"16px",flexWrap:"wrap"}},
       kcard("Abertos",String(abertos.length),"var(--ip-accent)"),
       kcard("SLA estourado",String(estourados.length),estourados.length?"#E5484D":"var(--ip-ok)"),
@@ -2428,8 +2501,12 @@ function Chamados(p){
       h(Field,{label:"Descrição"}, h("textarea",{className:"ip-input",rows:3,value:f.descricao||"",onChange:function(e){up("descricao",e.target.value);}})),
       h("div",{style:{display:"flex",gap:"10px"}}, h("button",{className:"ip-btn",disabled:saving||!f.titulo,onClick:salvar},saving?"Salvando…":"Salvar"), h("button",{className:"ip-btn ghost",onClick:close},"Cancelar"))
     ):null,
-    h("div",{className:"ip-seg ip-noprint",style:{marginBottom:"12px"}}, [["abertos","Abertos"],["todos","Todos"],["resolvido","Resolvidos"],["fechado","Fechados"]].map(function(o){ return h("button",{key:o[0],className:filt===o[0]?"on":"",onClick:function(){setFilt(o[0]);}},o[1]); })),
-    h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
+    vista==="quadro"? h("div",null,
+      quadro(),
+      h("div",{className:"ip-faint",style:{fontSize:"12px",marginTop:"12px"}},
+        "Arraste um chamado entre as colunas para mudar o status. Clique no cartão para editar. Prefere a tabela? Use “☰ Lista”.")) : null,
+    vista==="lista"? h("div",{className:"ip-seg ip-noprint",style:{marginBottom:"12px"}}, [["abertos","Abertos"],["todos","Todos"],["resolvido","Resolvidos"],["fechado","Fechados"]].map(function(o){ return h("button",{key:o[0],className:filt===o[0]?"on":"",onClick:function(){setFilt(o[0]);}},o[1]); })) : null,
+    vista==="lista"? h("div",{className:"ip-card",style:{overflow:"hidden"}}, h("table",{className:"ip-tbl"},
       h("thead",null,h("tr",null,h("th",null,"Nº"),h("th",null,"Chamado"),h("th",null,"Prioridade"),h("th",null,"Status"),h("th",null,"Aberto há"),h("th",{className:"col-acoes"},"Ações"))),
       h("tbody",null, lista.length?lista.map(function(c){ var pr=priInfo(c.prioridade); var aberto=(c.status==="aberto"||c.status==="andamento"); var estr=aberto&&horasDesde(c.aberto_em)>(c.sla_horas||24);
         return h("tr",{key:c.id},
@@ -2445,7 +2522,7 @@ function Chamados(p){
             h("button",{className:"ip-btn ghost sm act",onClick:function(){open(c);}},"Editar"),
             h("button",{className:"ip-btn danger sm iconbtn",title:"Excluir",onClick:function(){remover(c);}},"✕"))));
       }):h("tr",null,h("td",{colSpan:6,className:"ip-faint"},"Nenhum chamado neste filtro. Use \"+ Novo chamado\" para registrar o primeiro atendimento.")))
-    ))
+    )) : null
   );
 }
 
