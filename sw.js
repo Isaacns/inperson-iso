@@ -1,5 +1,5 @@
 /* INPERSON ISO service worker — versionado por build. NÃO editar o valor de VER à mão: o build.js injeta. */
-var VER="mrryne6z";
+var VER="mrrywost";
 var C="inperson-iso-"+VER;
 
 self.addEventListener("install", function(e){ self.skipWaiting(); });
