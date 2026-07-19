@@ -780,6 +780,17 @@ function comprimirImagem(f){
   });
 }
 
+/* Registro do service worker, guardado no escopo do módulo para que o
+   "puxar para atualizar" também consiga procurar versão nova do app.
+
+   ARMADILHA QUE ISTO CORRIGE: o pull-to-refresh recarregava só os DADOS. O
+   usuário puxava, via os números atualizarem e concluía que estava na última
+   versão — mas o CSS/JS continuavam os antigos. Foi exatamente o que aconteceu
+   com o Isaac: correções publicadas, ele "atualizou", e as telas seguiam
+   quebradas. Agora o gesto faz as duas coisas. */
+var _swReg=null;
+function checarVersaoApp(){ try{ if(_swReg) _swReg.update(); }catch(e){} }
+
 /* Baixa sem window.open: no PWA instalado (iOS) a janela nova é bloqueada. */
 function baixarUrl(url,nome){
   var el=document.createElement("a"); el.href=url; el.download=nome||"arquivo";
@@ -1132,7 +1143,7 @@ function App(){
         if(_refreshing)return; _refreshing=true; if(_hadCtrl) location.reload();
       });
       navigator.serviceWorker.register("./sw.js").then(function(reg){
-        _reg=reg;
+        _reg=reg; _swReg=reg; /* expõe para o pull-to-refresh procurar versão nova */
         /* versão nova já instalada numa visita anterior, parada esperando */
         if(reg.waiting && navigator.serviceWorker.controller) avisarNovaVersao();
         reg.addEventListener("updatefound",function(){
@@ -1249,7 +1260,7 @@ function App(){
       )
     ),
     h(BottomNav,{NAV:NAV,view:view,go:go,open:navOpen,setOpen:setNavOpen,busy:!!(editing||docView||editDoc)}),
-    h(PullRefresh,{onRefresh:carregar}),
+    h(PullRefresh,{onRefresh:function(){ checarVersaoApp(); return carregar(); }}),
     h(Toast,toast||{})
   );
 }
@@ -1813,7 +1824,7 @@ function AcompPublico(p){
   var _logo=cliLogo(dados.logo);
   var _sty={}; if(dados.cor_primaria) _sty["--ip-accent"]=dados.cor_primaria; if(dados.cor_secundaria) _sty["--ip-accent-2"]=dados.cor_secundaria;
   return h("div",{className:"acp",style:_sty},
-    h(PullRefresh,{onRefresh:carregar}),
+    h(PullRefresh,{onRefresh:function(){ checarVersaoApp(); return carregar(); }}),
     visor?h(Visor,{arq:visor,onClose:function(){ setVisor(null); },onBaixar:baixarVisor}):null,
     h("div",{className:"acp-head"},
       _logo?h("div",{className:"acp-clilogo"},h("img",{src:_logo,alt:dados.cliente})):h("img",{src:IP_LOGO,alt:"INPERSON",className:"acp-hero"}),
