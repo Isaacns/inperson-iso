@@ -365,6 +365,24 @@ body{overscroll-behavior-y:contain}
   .ip-visor-top{padding-top:calc(10px + env(safe-area-inset-top))}
 }
 
+/* Documento controlado no celular (Matriz, Relatório, formulários em PDF).
+   Aqui NÃO se empilha: é documento formal, com layout que precisa ser fiel ao
+   que será impresso/auditado. A tabela mantém a forma e rola DENTRO do
+   documento — a rolagem fica confinada e não empurra a página. */
+@media(max-width:820px){
+  .doc-ctrl{border-radius:12px}
+  .doc-ctrl .dc-head{padding:16px 14px;gap:12px}
+  .doc-ctrl .dc-meta{grid-template-columns:1fr 1fr}
+  .doc-ctrl .dc-meta div:nth-child(2n){border-right:none}
+  .doc-ctrl .dc-body{padding:16px 14px}
+  .doc-ctrl .dc-body table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    white-space:nowrap;min-width:0}
+  .doc-ctrl .dc-body th,.doc-ctrl .dc-body td{white-space:normal;min-width:110px}
+  .doc-ctrl .dc-sign{grid-template-columns:1fr;gap:22px;margin-top:26px}
+  .doc-ctrl .dc-foot{padding:12px 14px}
+  .doc-ctrl h2.dc-title{font-size:16px}
+}
+
 /* Detalhe da despesa */
 .desp-row{cursor:pointer}
 .desp-det{flex:1;min-height:0;overflow:auto;padding:16px 18px 20px}
@@ -2322,10 +2340,10 @@ function Revisoes(p){
     :(rows.length?h("table",{className:"ip-tbl"},
         h("thead",null,h("tr",null,h("th",null,"Revisão"),h("th",null,"Data"),h("th",null,"Alterado por"),h("th",null,"Nota"))),
         h("tbody",null,rows.map(function(v){ return h("tr",{key:v.id},
-          h("td",null,h("b",{className:"tbl-codigo"},v.revisao)),
-          h("td",{className:"ip-muted"},brDate(v.criado_em)),
-          h("td",{className:"ip-muted"},v.alterado_por||"—"),
-          h("td",{className:"ip-muted"},v.nota||"—")); })))
+          h("td",null,h("b",{className:"tbl-codigo"},"Revisão "+v.revisao)),
+          h("td",{className:"ip-muted","data-l":"Data"},brDate(v.criado_em)),
+          h("td",{className:"ip-muted","data-l":"Alterado por"},v.alterado_por||"—"),
+          h("td",{className:"ip-muted","data-l":"Nota"},v.nota||"—")); })))
       :h("div",{className:"ip-faint",style:{fontSize:"12px"}},"Nenhuma revisão anterior arquivada. Ao publicar uma nova revisão pelo editor, a anterior é arquivada aqui.")));
 }
 
